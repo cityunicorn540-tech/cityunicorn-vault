@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>The CityUnicorn Vault - Browser Games</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦄</text></svg>">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <span class="logo-icon">🦄</span>
+                <h1>The CityUnicorn Vault</h1>
+            </div>
+            <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+        <nav class="nav" id="mainNav">
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Search games..." class="search-input">
+                <span class="search-icon">🔍</span>
+            </div>
+            <div class="category-filters" id="categoryFilters">
+                <button class="filter-btn active" data-category="all">All Games</button>
+                <button class="filter-btn" data-category="action">Action</button>
+                <button class="filter-btn" data-category="puzzle">Puzzle</button>
+                <button class="filter-btn" data-category="strategy">Strategy</button>
+                <button class="filter-btn" data-category="arcade">Arcade</button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-content">
+                <h2>Welcome to The CityUnicorn Vault</h2>
+                <p>Discover and play amazing browser games instantly!</p>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <span class="stat-number" id="totalGames">0</span>
+                        <span class="stat-label">Games</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">∞</span>
+                        <span class="stat-label">Fun</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Games Grid -->
+        <section class="games-section">
+            <div class="games-grid" id="gamesGrid">
+                <!-- Games will be loaded dynamically -->
+            </div>
+            <div class="no-games" id="noGames" style="display: none;">
+                <span class="no-games-icon">🎮</span>
+                <p>No games found matching your search.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Game Player Modal -->
+    <div class="game-modal" id="gameModal">
+        <div class="game-modal-content">
+            <div class="game-modal-header">
+                <h3 id="modalGameTitle">Game Title</h3>
+                <div class="game-modal-controls">
+                    <button class="modal-btn" id="fullscreenBtn" aria-label="Fullscreen">
+                        <span>⛶</span>
+                    </button>
+                    <button class="modal-btn close-btn" id="closeModal" aria-label="Close">
+                        <span>✕</span>
+                    </button>
+                </div>
+            </div>
+            <div class="game-frame-container">
+                <iframe id="gameFrame" src="" frameborder="0" allowfullscreen allow="autoplay; fullscreen"></iframe>
+            </div>
+            <div class="game-modal-footer">
+                <p id="modalGameDescription">Game description</p>
+                <div class="game-meta">
+                    <span class="game-author" id="modalGameAuthor">By: Author</span>
+                    <span class="game-category" id="modalGameCategory">Category</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>🦄 The CityUnicorn Vault - Browser Game Portal</p>
+            <p class="footer-links">
+                <a href="#">About</a> • 
+                <a href="#">Submit a Game</a> • 
+                <a href="#">Contact</a>
+            </p>
+            <p class="copyright">Hosted on GitHub Pages</p>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
