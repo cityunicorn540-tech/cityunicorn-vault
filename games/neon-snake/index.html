@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>CityUnicorn Neon Snake</title>
+    <style>
+        body { background: #0d0208; color: #fff; text-align: center; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; touch-action: none; }
+        h1 { color: #bc13fe; text-shadow: 0 0 10px #ff00e6; font-size: 1.5rem; }
+        canvas { background: #1a1a2e; border: 2px solid #bc13fe; border-radius: 10px; box-shadow: 0 0 20px rgba(188, 19, 254, 0.4); }
+        #scoreBoard { color: #00ff41; font-size: 1.2rem; margin-top: 10px; }
+        .mobile-note { font-size: 0.8rem; color: #666; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <h1>NEON SNAKE: CITYUNICORN</h1>
+    <canvas id="gameCanvas" width="300" height="300"></canvas>
+    <div id="scoreBoard">Score: <span id="score">0</span></div>
+    <p class="mobile-note">Swipe anywhere on screen to control.</p>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+
+        // Game Settings
+        const gridSize = 20; // Size of each snake segment/food
+        const tileCount = canvas.width / gridSize;
+        const gameSpeed = 300; // Lower is faster
+
+        // Snake and Food
+        let snake = [{ x: 10, y: 10 }];
+        let food = { x: 5, y: 5 };
+        let dx = 0; // Horizontal velocity
+        let dy = 0; // Vertical velocity
+        let score = 0;
+        let isGameOver = false;
+
+        // Colors
+        const snakeColor = '#bc13fe'; // Neon Purple
+        const foodColor = '#ff00e6'; // Unicorn Pink
+
+        // Main Game Loop
+        function main() {
+            if (isGameOver) { ctx.fillStyle = foodColor; ctx.font = "20px Segoe UI"; ctx.fillText("GAME OVER - Tap to reset", 30, 150); return; }
+            setTimeout(function() {
+                requestAnimationFrame(main);
+                clearCanvas();
+                moveSnake();
+                drawFood();
+                drawSnake();
+                checkGameOver();
+            }, gameSpeed);
+        }
+
+        // Functions
+        function clearCanvas() { ctx.fillStyle = "#1a1a2e"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+        function drawFood() { ctx.fillStyle = foodColor; ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 1, gridSize - 1); }
+        function drawSnake() { snake.forEach(part => { ctx.fillStyle = snakeColor; ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize - 1, gridSize - 1); }); }
+
+        function moveSnake() {
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+            snake.unshift(head); // Add new head
+
+            // Check if food is eaten
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                scoreEl.textContent = score;
+                placeFood();
+            } else { snake.pop(); } // Remove tail
+        }
+
+        function placeFood() {
+            food = {
+                x: Math.floor(Math.random() * tileCount),
+                y: Math.floor(Math.random() * tileCount)
+            };
+            // Prevent food from spawning on snake
+            snake.forEach(part => { if(part.x === food.x && part.y === food.y) placeFood(); });
+        }
+
+        function checkGameOver() {
+            const head = snake[0];
+            // Wall collision
+            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) { isGameOver = true; }
+            // Self collision
+            for (let i = 1; i < snake.length; i++) { if (snake[i].x === head.x && snake[i].y === head.y) { isGameOver = true; } }
+        }
+
+        // --- Touchscreen Controls (Swipe) ---
+        let startX, startY;
+        document.addEventListener('touchstart', e => { startX = e.touches[0].clientX; startY = e.touches[0].clientY; if(isGameOver) resetGame(); });
+        document.addEventListener('touchend', e => {
+            if (!startX || !startY || isGameOver) return;
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const delX = endX - startX; const delY = endY - startY;
+
+            // Determine if swipe was mostly horizontal or vertical
+            if (Math.abs(delX) > Math.abs(delY)) { // Horizontal
+                if (delX > 0 && dx === 0) { dx = 1; dy = 0; } // Swipe Right
+                else if (delX < 0 && dx === 0) { dx = -1; dy = 0; } // Swipe Left
+            } else { // Vertical
+                if (delY > 0 && dy === 0) { dx = 0; dy = 1; } // Swipe Down
+                else if (delY < 0 && dy === 0) { dx = 0; dy = -1; } // Swipe Up
+            }
+            startX = startY = null; // Reset
+        });
+
+        function resetGame() { snake = [{ x: 10, y: 10 }]; dx = 0; dy = 0; score = 0; scoreEl.textContent = 0; placeFood(); isGameOver = false; main(); }
+
+        // Start
+        placeFood();
+        main();
+    </script>
+</body>
+</html>
