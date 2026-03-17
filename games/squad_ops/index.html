@@ -1,0 +1,367 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Squad Ops: Level Up Edition</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: sans-serif; touch-action: none; }
+        canvas { display: block; background: #2d3e1d; }
+
+        /* UI Screens */
+        #menu, #end-screen, #level-screen { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; color: white; z-index: 100;
+        }
+
+        .btn { 
+            padding: 20px 60px; font-size: 24px; background: #2ecc71; color: white; 
+            border: none; border-radius: 50px; cursor: pointer; font-weight: bold; 
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.4);
+        }
+
+        #hud { position: absolute; top: 15px; left: 15px; color: white; pointer-events: none; display: none; z-index: 50; }
+        #round-display { font-size: 24px; color: #3498db; font-weight: bold; margin-bottom: 5px; }
+        #score-container { font-size: 18px; color: #f1c40f; font-weight: bold; text-shadow: 1px 1px 2px black; }
+
+        /* Updated Minimap Layout */
+        #minimap-container {
+            position: absolute; top: 15px; right: 15px; width: 120px; height: 120px;
+            background: rgba(0,0,0,0.7); border: 2px solid #3498db; border-radius: 10px; overflow: hidden; display: none; z-index: 50;
+        }
+
+        .bar { width: 180px; height: 14px; background: #333; border: 1.5px solid white; margin-top: 8px; border-radius: 7px; overflow: hidden; }
+        #hp-fill { width: 100%; height: 100%; background: #2ecc71; transition: width 0.2s; }
+
+        #combo-alert { color: #ff4757; font-style: italic; margin-left: 10px; }
+
+        /* Level Up Animation */
+        .level-up-text { font-size: 60px; color: #f1c40f; animation: pop 0.5s ease-out; }
+        @keyframes pop { 0% { transform: scale(0.5); } 100% { transform: scale(1.2); } }
+    </style>
+</head>
+<body>
+
+<div id="menu">
+    <h1 style="letter-spacing: 5px; font-size: 40px; margin-bottom: 10px;">SQUAD OPS</h1>
+    <p style="margin-bottom: 30px; opacity: 0.7;">BATTLE ROYALE: LEVEL UP</p>
+    <button class="btn" onclick="startGame()">START MISSION</button>
+</div>
+
+<div id="level-screen" style="display: none;">
+    <h1 class="level-up-text">LEVEL COMPLETE</h1>
+    <p id="level-desc" style="font-size: 20px;">Enemies are getting stronger...</p>
+</div>
+
+<div id="end-screen" style="display: none;">
+    <h1 id="end-title">MISSION FAILED</h1>
+    <h2 id="final-score" style="color: #f1c40f; margin: 5px 0;">SCORE: 0</h2>
+    <h3 id="high-score-end" style="opacity: 0.6; font-weight: normal; margin-bottom: 25px;">BEST: 0</h3>
+    <button class="btn" onclick="location.reload()">REDEPLOY</button>
+</div>
+
+<div id="hud">
+    <div id="round-display">ROUND <span id="rNum">1</span></div>
+    <div style="font-weight: bold; font-size: 14px;">TEAM: <span id="sCount">0</span> | ENEMIES: <span id="eCount">0</span></div>
+    <div id="score-container">SCORE: <span id="currentScore">0</span> <span id="combo-alert"></span></div>
+    <div class="bar"><div id="hp-fill"></div></div>
+</div>
+
+<div id="minimap-container"><canvas id="mmCanvas" width="120" height="120"></canvas></div>
+<canvas id="gameCanvas"></canvas>
+
+<script>
+// --- GAME STATE ---
+let currentLevel = 1;
+let score = 0, combo = 1, comboTimer = 0;
+const COMBO_TIME_LIMIT = 300;
+
+// Audio
+let audioCtx = null;
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playSound(freq, type = 'square', decay = 0.1) {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(freq, now);
+    osc.frequency.exponentialRampToValueAtTime(10, now + decay);
+    gain.gain.setValueAtTime(1.0, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + decay);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(now + decay);
+}
+
+// Core Engine
+const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
+const mmCanvas = document.getElementById('mmCanvas'), mmCtx = mmCanvas.getContext('2d');
+const hpFill = document.getElementById('hp-fill'), scoreTxt = document.getElementById('currentScore');
+const rNumTxt = document.getElementById('rNum'), eCountTxt = document.getElementById('eCount'), sCountTxt = document.getElementById('sCount');
+
+let w, h, player, gameActive = false, transitionActive = false;
+let entities = [], bullets = [], environment = [];
+let worldSize = 3000, camera = { x: 0, y: 0 };
+let zone = { x: 1500, y: 1500, r: 1800, targetR: 200 };
+let joy = { active: false, startX: 0, startY: 0, currX: 0, currY: 0, id: null };
+let shoot = { active: false, startX: 0, startY: 0, currX: 0, currY: 0, id: null, cooldown: 0 };
+
+function startGame() {
+    initAudio();
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('hud').style.display = 'block';
+    document.getElementById('minimap-container').style.display = 'block';
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+
+    // Initial player creation
+    player = { id: 'player', x: 1500, y: 1500, team: 'blue', hp: 100, maxHp: 100, speed: 5, aimA: 0, weaponType: 'standard', pwrTimer: 0 };
+
+    loadLevel(1);
+    gameActive = true;
+}
+
+function loadLevel(lvl) {
+    transitionActive = false;
+    document.getElementById('level-screen').style.display = 'none';
+    currentLevel = lvl;
+    rNumTxt.innerText = lvl;
+
+    // Clear and Reset Arena
+    entities = [player];
+    bullets = [];
+    environment = [];
+    zone.r = 1800;
+    player.x = 1500; player.y = 1500;
+
+    // Difficulty Scaling Math
+    let enemyCount = 10 + (lvl * 3);
+    let enemyHP = 80 + (lvl * 20);
+    let enemySpeed = 2.5 + (lvl * 0.3);
+
+    // Populate Environment
+    for(let i=0; i<80; i++) {
+        let type = Math.random() > 0.4 ? (Math.random() > 0.5 ? 'tree' : 'bush') : 'rock';
+        environment.push({ x: Math.random()*worldSize, y: Math.random()*worldSize, r: type === 'rock' ? 25 : 35, type });
+    }
+    for(let i=0; i<10; i++) environment.push({x: Math.random()*worldSize, y: Math.random()*worldSize, r: 15, type:'medkit', active: true});
+
+    // Clear spawn area - ensure player never spawns on a tree/rock/bush
+    const spawnX = 1500, spawnY = 1500, spawnRadius = 100;
+    environment = environment.filter(env => {
+        let dist = Math.hypot(env.x - spawnX, env.y - spawnY);
+        return dist > spawnRadius;
+    });
+
+    // Spawn Duo Partner
+    spawnBot('blue', 1500, 1500, {dx:-60, dy:60}, 100, 3);
+
+    // Spawn Enemies
+    for(let i=0; i<enemyCount; i++) {
+        spawnBot('red', Math.random()*worldSize, Math.random()*worldSize, null, enemyHP, enemySpeed);
+    }
+    playSound(400, 'sine', 0.5);
+}
+
+function spawnBot(team, x, y, offset = null, hp, speed) {
+    entities.push({ team, x, y, hp: hp, maxHp: hp, speed: speed, offset, inBush: false });
+}
+
+function checkCollision(obj, dx, dy) {
+    let nx = obj.x + dx, ny = obj.y + dy;
+    for(let env of environment) {
+        if(env.type !== 'bush' && env.type !== 'medkit') {
+            let dist = Math.hypot(nx - env.x, ny - env.y);
+            if(dist < env.r + 5) return true;
+        }
+    }
+    return nx < 50 || nx > worldSize-50 || ny < 50 || ny > worldSize-50;
+}
+
+// Touch Input
+canvas.addEventListener('touchstart', e => {
+    if(!gameActive || transitionActive) return;
+    for(let t of e.changedTouches) {
+        if(t.clientX < w/2) { joy.active=true; joy.startX=joy.currX=t.clientX; joy.startY=joy.currY=t.clientY; joy.id=t.identifier; }
+        else { shoot.active=true; shoot.startX=shoot.currX=t.clientX; shoot.startY=shoot.currY=t.clientY; shoot.id=t.identifier; }
+    }
+});
+canvas.addEventListener('touchmove', e => {
+    if(!gameActive) return; e.preventDefault();
+    for(let t of e.changedTouches) {
+        if(t.identifier === joy.id) { joy.currX=t.clientX; joy.currY=t.clientY; }
+        if(t.identifier === shoot.id) { shoot.currX=t.clientX; shoot.currY=t.clientY; }
+    }
+}, {passive: false});
+canvas.addEventListener('touchend', e => {
+    for(let t of e.changedTouches) {
+        if(t.identifier === joy.id) joy.active=false;
+        if(t.identifier === shoot.id) shoot.active=false;
+    }
+});
+
+function update() {
+    if(!gameActive || transitionActive) return;
+
+    if(zone.r > zone.targetR) zone.r -= 0.15;
+    if(comboTimer > 0) comboTimer--; else combo = 1;
+
+    // Player Movement
+    if(joy.active) {
+        let a = Math.atan2(joy.currY-joy.startY, joy.currX-joy.startX);
+        let mx = Math.cos(a)*player.speed, my = Math.sin(a)*player.speed;
+        if(!checkCollision(player, mx, 0)) player.x += mx;
+        if(!checkCollision(player, 0, my)) player.y += my;
+    }
+
+    let enemies = entities.filter(en => en.team === 'red');
+
+    // Check Round Completion
+    if(enemies.length === 0) {
+        triggerLevelUp();
+        return;
+    }
+
+    // Aiming & Shooting
+    if(shoot.active) player.aimA = Math.atan2(shoot.currY-shoot.startY, shoot.currX-shoot.startX);
+    else {
+        let target = enemies.find(en => Math.hypot(en.x-player.x, en.y-player.y) < 450);
+        if(target) player.aimA = Math.atan2(target.y-player.y, target.x-player.x);
+    }
+
+    if((shoot.active || enemies.some(en => Math.hypot(en.x-player.x, en.y-player.y) < 400)) && shoot.cooldown <= 0) {
+        bullets.push({x: player.x, y: player.y, vx: Math.cos(player.aimA)*15, vy: Math.sin(player.aimA)*15, team: 'blue'});
+        playSound(200, 'square', 0.05);
+        shoot.cooldown = 12;
+    }
+    shoot.cooldown--;
+
+    // Entities Logic
+    entities.forEach((en, i) => {
+        if(Math.hypot(en.x - zone.x, en.y - zone.y) > zone.r) en.hp -= 0.15;
+
+        if(en.id !== 'player') {
+            let target = entities.find(e => e.team !== en.team && Math.hypot(en.x-e.x, en.y-e.y) < 500);
+            if(target) {
+                let a = Math.atan2(target.y-en.y, target.x-en.x);
+                if(!checkCollision(en, Math.cos(a)*en.speed, Math.sin(a)*en.speed)) {
+                    en.x += Math.cos(a)*en.speed; en.y += Math.sin(a)*en.speed;
+                }
+                if(Math.random() < 0.02) bullets.push({x: en.x, y: en.y, vx: Math.cos(a)*10, vy: Math.sin(a)*10, team: en.team});
+            } else if(en.team === 'blue') {
+                let tx = player.x + en.offset.dx, ty = player.y + en.offset.dy;
+                if(Math.hypot(tx-en.x, ty-en.y) > 40) {
+                    let a = Math.atan2(ty-en.y, tx-en.x);
+                    en.x += Math.cos(a)*player.speed*0.8; en.y += Math.sin(a)*player.speed*0.8;
+                }
+            }
+        }
+
+        if(en.hp <= 0) {
+            if(en.team === 'red') { score += 100 * currentLevel; combo++; comboTimer = COMBO_TIME_LIMIT; }
+            if(en.id === 'player') endGame();
+            entities.splice(i, 1);
+        }
+    });
+
+    // Pickups
+    environment.forEach(ev => {
+        if(ev.active && ev.type === 'medkit' && Math.hypot(player.x-ev.x, player.y-ev.y) < 40) {
+            player.hp = Math.min(100, player.hp + 30); ev.active = false;
+            playSound(600, 'sine', 0.1);
+        }
+    });
+
+    // Bullets
+    for(let i=bullets.length-1; i>=0; i--) {
+        let b = bullets[i]; b.x += b.vx; b.y += b.vy;
+        let hit = false;
+        entities.forEach(en => { if(b.team !== en.team && Math.hypot(b.x-en.x, b.y-en.y) < 30) { en.hp -= 20; hit = true; } });
+        if(hit || Math.hypot(b.x-player.x, b.y-player.y) > 1000) bullets.splice(i, 1);
+    }
+
+    camera.x = player.x - w/2; camera.y = player.y - h/2;
+    hpFill.style.width = Math.max(0, player.hp) + "%";
+    sCountTxt.innerText = entities.filter(e => e.team === 'blue').length;
+    eCountTxt.innerText = entities.filter(e => e.team === 'red').length;
+    scoreTxt.innerText = score;
+}
+
+function triggerLevelUp() {
+    transitionActive = true;
+    document.getElementById('level-screen').style.display = 'flex';
+    document.getElementById('level-desc').innerText = `Level ${currentLevel} Cleared! Preparing Round ${currentLevel + 1}...`;
+    setTimeout(() => {
+        loadLevel(currentLevel + 1);
+    }, 2500);
+}
+
+function endGame() {
+    gameActive = false;
+    document.getElementById('end-screen').style.display = 'flex';
+    document.getElementById('final-score').innerText = "SCORE: " + score;
+    let high = localStorage.getItem('squadHigh') || 0;
+    if(score > high) localStorage.setItem('squadHigh', score);
+    document.getElementById('high-score-end').innerText = "BEST: " + Math.max(score, high);
+}
+
+function draw() {
+    ctx.clearRect(0,0,w,h); 
+    if(!gameActive) return;
+
+    ctx.save(); ctx.translate(-camera.x, -camera.y);
+
+    // Zone
+    ctx.strokeStyle = "rgba(231, 76, 60, 0.3)"; ctx.lineWidth = 10;
+    ctx.beginPath(); ctx.arc(zone.x, zone.y, zone.r, 0, Math.PI*2); ctx.stroke();
+
+    // Environment
+    environment.forEach(env => {
+        if(env.type === 'medkit' && !env.active) return;
+        ctx.beginPath();
+        if(env.type === 'tree') ctx.fillStyle = "#1e8449";
+        else if(env.type === 'bush') ctx.fillStyle = "rgba(34,139,34,0.4)";
+        else if(env.type === 'rock') ctx.fillStyle = "#7f8c8d";
+        else if(env.type === 'medkit') ctx.fillStyle = "white";
+
+        if(env.type === 'medkit') ctx.fillRect(env.x-10, env.y-10, 20, 20);
+        else { ctx.arc(env.x, env.y, env.r, 0, Math.PI*2); ctx.fill(); }
+    });
+
+    // Players
+    entities.forEach(en => {
+        ctx.fillStyle = en.team === 'blue' ? '#3498db' : '#e74c3c';
+        ctx.beginPath(); ctx.arc(en.x, en.y, 20, 0, Math.PI*2); ctx.fill();
+        // Mini health bar above enemies
+        if(en.team === 'red') {
+            ctx.fillStyle = 'black'; ctx.fillRect(en.x-20, en.y-30, 40, 4);
+            ctx.fillStyle = 'red'; ctx.fillRect(en.x-20, en.y-30, 40*(en.hp/en.maxHp), 4);
+        }
+    });
+
+    bullets.forEach(b => { ctx.fillStyle = "yellow"; ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill(); });
+    ctx.restore();
+
+    if(joy.active) drawStick(joy.startX, joy.startY, joy.currX, joy.currY, '#3498db');
+    if(shoot.active) drawStick(shoot.startX, shoot.startY, shoot.currX, shoot.currY, '#e74c3c');
+
+    // Minimap
+    mmCtx.fillStyle = "black"; mmCtx.fillRect(0,0,120,120);
+    entities.forEach(en => {
+        mmCtx.fillStyle = en.team === 'blue' ? '#3498db' : '#e74c3c';
+        mmCtx.beginPath(); mmCtx.arc((en.x/worldSize)*120, (en.y/worldSize)*120, 2, 0, Math.PI*2); mmCtx.fill();
+    });
+}
+
+function drawStick(sx, sy, cx, cy, col) {
+    ctx.strokeStyle = col+"44"; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(sx, sy, 50, 0, Math.PI*2); ctx.stroke();
+    let a = Math.atan2(cy-sy, cx-sx), d = Math.min(50, Math.hypot(cx-sx, cy-sy));
+    ctx.fillStyle = col+"88"; ctx.beginPath(); ctx.arc(sx+Math.cos(a)*d, sy+Math.sin(a)*d, 25, 0, Math.PI*2); ctx.fill();
+}
+
+function loop() { update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
+
