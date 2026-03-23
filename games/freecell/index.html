@@ -2,685 +2,230 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    
-    <meta name="author" content="cityunicorn540-tech">
-    
-    <title>♠ FREECELL | CityUnicorn</title>
-    
-    <meta name="description" content="A custom FreeCell experience by CityUnicorn with scroll, timer, and high scores.">
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CityUnicorn Solitaire</title>
     <style>
-        * {
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;  /* prevent pull-to-refresh while scrolling board */
+        :root {
+            --bg-color: #1a472a;
+            --card-width: 65px;
+            --card-height: 95px;
+            --accent: #ff00ff;
         }
-        body {
+
+        body { 
+            background: var(--bg-color); 
+            color: white; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            text-align: center;
             margin: 0;
-            min-height: 100vh;
-            background: linear-gradient(145deg, #2b5a3a 0%, #1d3e2a 100%);
-            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 8px;
+            overflow: hidden; /* Prevents bounce-scrolling on mobile */
+            touch-action: none;
         }
-        .game-wrapper {
-            width: 100%;
-            max-width: 1100px;
-            background: rgba(0,0,0,0.25);
-            border-radius: 32px;
-            padding: 16px 12px 20px 12px;
-            box-shadow: 0 20px 30px rgba(0,0,0,0.5);
-            backdrop-filter: blur(2px);
+
+        h1 { margin: 10px 0; font-size: 1.5rem; text-shadow: 2px 2px #000; }
+
+        .controls { margin-bottom: 15px; }
+
+        button {
+            background: linear-gradient(45deg, var(--accent), #00ffff);
+            color: white; padding: 12px 25px; border: none;
+            border-radius: 25px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
-        /* top bar: timer + reset + best */
-        .stats-bar {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            background: #2c4b3c;
-            border-radius: 60px;
-            padding: 10px 18px;
-            margin-bottom: 18px;
-            color: #f7e9c3;
-            font-weight: bold;
-            text-shadow: 2px 2px 0 #1d2e1d;
-            box-shadow: inset 0 2px 5px #6f8f7a, 0 6px 0 #142111;
-            border: 1px solid #c0b28a;
+
+        .container {
+            display: flex; flex-direction: column; align-items: center; gap: 20px;
         }
-        .timer {
-            background: #1f2e24;
-            padding: 6px 16px;
-            border-radius: 40px;
-            font-size: 1.6rem;
-            letter-spacing: 2px;
-            font-family: monospace;
-            border: 1px solid #b9a577;
-            box-shadow: inset 0 2px 5px black;
-        }
-        .best-row {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }
-        .best-score {
-            background: #392e1b;
-            padding: 6px 16px;
-            border-radius: 30px;
-            font-size: 1.3rem;
-            border: 1px solid #e6c87c;
-        }
-        .reset-btn {
-            background: #c9a45b;
-            border: none;
-            color: #1f3a24;
-            font-size: 1.5rem;
-            font-weight: bold;
-            padding: 8px 22px;
-            border-radius: 40px;
-            box-shadow: 0 6px 0 #6b4f24, 0 8px 8px black;
-            cursor: pointer;
-            transition: 0.07s;
-            border: 1px solid #ffdfa0;
-            touch-action: manipulation;
-        }
-        .reset-btn:active {
-            transform: translateY(6px);
-            box-shadow: 0 2px 0 #5a401f, 0 5px 10px black;
-        }
-        /* SCROLLABLE BOARD – both directions */
-        .board-scroll {
-            width: 100%;
-            overflow: auto;
-            -webkit-overflow-scrolling: touch; /* smooth inertial scroll */
-            background: #296342;
-            border-radius: 28px;
-            border: 4px solid #422b12;
-            box-shadow: inset 0 0 0 2px #86a788;
-            padding: 20px 15px;
-            max-height: 75vh;   /* allow vertical scroll if needed */
-        }
-        /* inner board width expands with columns */
-        .freecell-board {
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-            min-width: 780px;        /* forces horizontal scroll on narrow mobile */
-        }
-        /* top row: free cells + foundations */
-        .top-row {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: space-around;
-        }
-        .freecells, .foundations {
-            display: flex;
-            gap: 12px;
-            background: #1a4027;
-            padding: 12px 15px;
-            border-radius: 60px;
-            border: 2px solid #cbb47a;
-            box-shadow: inset 0 0 0 3px #356b43;
-        }
-        .cell {
-            width: 72px;
-            height: 100px;
-            background: #2f6737;
-            border-radius: 12px;
-            border: 3px solid #eddba6;
-            box-shadow: 0 8px 0 #1f401f, 0 10px 12px black;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            font-weight: 800;
-            color: white;
-            text-shadow: 2px 2px 0 black;
-            transition: 0.1s;
+
+        /* Slots for Foundation and Tableau */
+        .row { display: flex; justify-content: center; gap: 10px; width: 100%; }
+
+        .slot {
+            width: var(--card-width);
+            height: var(--card-height);
+            border: 2px dashed rgba(255,255,255,0.2);
+            border-radius: 6px;
             position: relative;
         }
-        .freecell {
-            background: #184d23;
-        }
-        .foundation {
-            background: #184d23;
-        }
-        /* card faces */
-        .card {
-            width: 70px;
-            height: 98px;
-            background: whitesmoke;
-            border-radius: 10px;
-            box-shadow: 0 6px 0 #7b5f36, 0 6px 12px black;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.8rem;
-            font-weight: bold;
-            transition: 0.1s;
-            border: 2px solid #eee9d0;
-            color: #222;
-        }
-        .card.red {
-            color: #c43b3b;
-        }
-        .card.black {
-            color: #1a1a1a;
-        }
-        .card span {
-            font-size: 2.2rem;
-            line-height: 1;
-        }
-        .card small {
-            font-size: 1rem;
-            margin-top: -5px;
+
+        /* Card Styling */
+        .card { 
+            width: var(--card-width);
+            height: var(--card-height);
+            background: white; color: black; 
+            border-radius: 6px; border: 1px solid #000;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 1.2rem;
+            position: absolute;
+            user-select: none;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
         }
 
-        /* cascades area */
-        .cascades {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: flex-start;
-            padding: 10px 0 15px;
+        .card.red { color: #d00; }
+
+        .card.back {
+            background: linear-gradient(135deg, #6200ea, #ff00ff);
+            color: transparent !important;
+            border: 2px solid white;
         }
-        .cascade-col {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            min-width: 76px;
-        }
-        .empty-pile {
-            width: 72px;
-            height: 100px;
-            background: #21552b;
-            border-radius: 12px;
-            border: 3px dashed #e7cf93;
-            opacity: 0.9;
-        }
-        /* selection highlight */
-        .selected {
-            outline: 5px solid #ffbb2b;
-            outline-offset: 3px;
-            transform: scale(1.02);
-            filter: brightness(1.2);
-        }
-        .footer-message {
-            text-align: center;
-            color: #e9daa7;
-            margin-top: 12px;
-            font-weight: 500;
-            text-shadow: 2px 2px 0 #1b411b;
-        }
+
+        .card.back::after { content: "🦄"; font-size: 1.5rem; filter: drop-shadow(0 0 2px white); }
+
+        #table-area { position: relative; width: 100%; height: 300px; margin-top: 10px; }
     </style>
-</head>
+<style></style></head>
 <body>
-<div class="game-wrapper">
-    <div class="stats-bar">
-        <div class="timer" id="timerDisplay">00:00</div>
-        <div class="best-row">
-            <div class="best-score" id="bestDisplay">🏆 --:--</div>
-            <button class="reset-btn" id="resetGameBtn">↺ NEW</button>
-        </div>
+
+    <h1>CityUnicorn Solitaire</h1>
+    
+    <div class="controls">
+        <button onclick="startNewGame()">✨ NEW GAME ✨</button>
     </div>
 
-    <!-- scrollable board wrapper -->
-    <div class="board-scroll" id="boardScroll">
-        <div class="freecell-board" id="freecellBoard">
-            <!-- top row: free cells (4) and foundations (4) -->
-            <div class="top-row">
-                <div class="freecells" id="freecellsContainer"></div>
-                <div class="foundations" id="foundationsContainer"></div>
-            </div>
-            <!-- cascades (8 columns) will be injected here -->
-            <div class="cascades" id="cascadesContainer"></div>
+    <div class="container">
+        <div class="row">
+            <div class="slot foundation" id="f1"></div>
+            <div class="slot foundation" id="f2"></div>
+            <div class="slot foundation" id="f3"></div>
+            <div class="slot foundation" id="f4"></div>
         </div>
+
+        <div class="row">
+            <div class="slot tableau-slot" id="t1"></div>
+            <div class="slot tableau-slot" id="t2"></div>
+            <div class="slot tableau-slot" id="t3"></div>
+        </div>
+
+        <div id="table-area"></div>
     </div>
-    <div class="footer-message">♢ tap card · tap destination ♧</div>
-</div>
 
-<script>
-(function() {
-    // ---------------------------------- game state ---------------------------------
-    const SUITS = ['♠','♥','♣','♦'];
-    const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-
-    // initial deck (standard 52)
-    function createDeck() {
+    <script>
+        const suits = ["♠", "♥", "♦", "♣"];
+        const values = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
         let deck = [];
-        for (let s of SUITS) {
-            for (let r of RANKS) {
-                deck.push({ suit: s, rank: r, id: s+'-'+r });
-            }
-        }
-        return deck;
-    }
 
-    // freecell: 4 free cells, 4 foundations, 8 cascades
-    let freeCells = [null, null, null, null];
-    let foundations = [[], [], [], []];   // each array holds cards in order
-    let cascades = [[], [], [], [], [], [], [], []];
-
-    let selectedCard = null;          // object { type, colIdx, cardIndex, cardElement }
-    let selectedDomId = null;         // to remove highlight
-
-    // timer
-    let timerSeconds = 0;
-    let timerInterval = null;
-    let gameWon = false;
-
-    // best score (lowest seconds)
-    let bestScore = Infinity;
-    const STORAGE_KEY = 'freecell_best_android';
-
-    // load best from localStorage
-    try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved && !isNaN(parseInt(saved))) {
-            bestScore = parseInt(saved);
-        } else {
-            bestScore = Infinity;
-        }
-    } catch(e) { bestScore = Infinity; }
-
-    // --------------------------------- helpers -------------------------------------
-    function formatTime(sec) {
-        let m = Math.floor(sec / 60);
-        let s = sec % 60;
-        return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-    }
-
-    function updateTimerDisplay() {
-        document.getElementById('timerDisplay').innerText = formatTime(timerSeconds);
-    }
-
-    function updateBestDisplay() {
-        const bestEl = document.getElementById('bestDisplay');
-        if (bestScore === Infinity) {
-            bestEl.innerText = '🏆 --:--';
-        } else {
-            bestEl.innerText = `🏆 ${formatTime(bestScore)}`;
-        }
-    }
-
-    // stop timer on win or reset
-    function stopTimer() {
-        if (timerInterval) {
-            clearInterval(timerInterval);
-            timerInterval = null;
-        }
-    }
-
-    function startTimer() {
-        if (timerInterval || gameWon) return;
-        timerInterval = setInterval(() => {
-            if (!gameWon) {
-                timerSeconds++;
-                updateTimerDisplay();
-            }
-        }, 1000);
-    }
-
-    // reset timer (to zero) and stop
-    function resetTimer() {
-        stopTimer();
-        timerSeconds = 0;
-        gameWon = false;
-        updateTimerDisplay();
-    }
-
-    // check win: all foundations length = 13
-    function checkWin() {
-        if (gameWon) return true;
-        const win = foundations.every(pile => pile.length === 13);
-        if (win) {
-            gameWon = true;
-            stopTimer();
-
-            // update best score (lowest time)
-            if (timerSeconds < bestScore) {
-                bestScore = timerSeconds;
-                try {
-                    localStorage.setItem(STORAGE_KEY, bestScore.toString());
-                } catch(e) {}
-                updateBestDisplay();
-            }
-        }
-        return win;
-    }
-
-    // clear any selected card
-    function clearSelected() {
-        if (selectedDomId) {
-            const prev = document.getElementById(selectedDomId);
-            if (prev) prev.classList.remove('selected');
-            selectedDomId = null;
-        }
-        selectedCard = null;
-    }
-
-    // ---- deal new game (standard random deal, but deterministic for simplicity) ----
-    function newGame() {
-        clearSelected();
-        stopTimer();
-        // rebuild deck and shuffle (simple Fisher–Yates)
-        let deck = createDeck();
-        for (let i = deck.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [deck[i], deck[j]] = [deck[j], deck[i]];
-        }
-
-        // empty all piles
-        freeCells = [null, null, null, null];
-        foundations = [[], [], [], []];
-        cascades = [[], [], [], [], [], [], [], []];
-
-        // deal to 8 cascades, 7 cards each? total 52: 4 piles get 7, 4 piles get 6.
-        let idx = 0;
-        for (let c = 0; c < 8; c++) {
-            let pileSize = (c < 4) ? 7 : 6;  // first 4 piles 7 cards, last 4 piles 6 → 52
-            for (let j = 0; j < pileSize; j++) {
-                if (idx < deck.length) {
-                    cascades[c].push(deck[idx]);
-                    idx++;
+        function createDeck() {
+            deck = [];
+            for (let s of suits) {
+                for (let v of values) {
+                    let color = (s === "♥" || s === "♦") ? "red" : "black";
+                    deck.push({ v, s, color, rank: values.indexOf(v) + 1 });
                 }
             }
         }
 
-        gameWon = false;
-        timerSeconds = 0;
-        updateTimerDisplay();
-        renderBoard();
-
-        // timer starts on first move (or immediately? we start after render for better UX)
-        startTimer();
-    }
-
-    // ------------------------------- rendering --------------------------------------
-    function renderBoard() {
-        const freeDiv = document.getElementById('freecellsContainer');
-        const foundDiv = document.getElementById('foundationsContainer');
-        const cascDiv = document.getElementById('cascadesContainer');
-
-        // free cells
-        freeDiv.innerHTML = '';
-        freeCells.forEach((card, i) => {
-            let cell = document.createElement('div');
-            cell.className = 'cell freecell';
-            cell.dataset.freeIndex = i;
-            cell.dataset.type = 'free';
-            if (card) {
-                let cardDiv = document.createElement('div');
-                cardDiv.className = `card ${(card.suit === '♥' || card.suit === '♦') ? 'red' : 'black'}`;
-                cardDiv.innerHTML = `<span>${card.suit}</span><small>${card.rank}</small>`;
-                cardDiv.dataset.cardId = card.id;
-                cardDiv.dataset.freeIndex = i;
-                cardDiv.dataset.type = 'free';
-                cardDiv.id = `card-${card.id}-free-${i}`;
-                cell.appendChild(cardDiv);
-            } else {
-                // empty placeholder (just visual)
-                cell.innerHTML = ''; 
-            }
-            freeDiv.appendChild(cell);
-        });
-
-        // foundations
-        foundDiv.innerHTML = '';
-        foundations.forEach((pile, i) => {
-            let cell = document.createElement('div');
-            cell.className = 'cell foundation';
-            cell.dataset.foundIndex = i;
-            cell.dataset.type = 'foundation';
-            let topCard = pile.length ? pile[pile.length-1] : null;
-            if (topCard) {
-                let cardDiv = document.createElement('div');
-                cardDiv.className = `card ${(topCard.suit === '♥' || topCard.suit === '♦') ? 'red' : 'black'}`;
-                cardDiv.innerHTML = `<span>${topCard.suit}</span><small>${topCard.rank}</small>`;
-                cardDiv.dataset.cardId = topCard.id;
-                cardDiv.dataset.foundIndex = i;
-                cardDiv.dataset.type = 'foundation';
-                cardDiv.id = `card-${topCard.id}-found-${i}`;
-                cell.appendChild(cardDiv);
-            } else {
-                // empty foundation: still show cell
-            }
-            foundDiv.appendChild(cell);
-        });
-
-        // cascades
-        cascDiv.innerHTML = '';
-        cascades.forEach((pile, colIdx) => {
-            let colDiv = document.createElement('div');
-            colDiv.className = 'cascade-col';
-            colDiv.dataset.cascadeCol = colIdx;
-            colDiv.dataset.type = 'cascade';
-
-            if (pile.length === 0) {
-                // empty pile placeholder (to keep column droppable)
-                let empty = document.createElement('div');
-                empty.className = 'empty-pile';
-                empty.dataset.cascadeCol = colIdx;
-                empty.dataset.type = 'cascade';
-                colDiv.appendChild(empty);
-            } else {
-                pile.forEach((card, cardIdx) => {
-                    let cardDiv = document.createElement('div');
-                    cardDiv.className = `card ${(card.suit === '♥' || card.suit === '♦') ? 'red' : 'black'}`;
-                    cardDiv.innerHTML = `<span>${card.suit}</span><small>${card.rank}</small>`;
-                    cardDiv.dataset.cardId = card.id;
-                    cardDiv.dataset.cascadeCol = colIdx;
-                    cardDiv.dataset.cardIndex = cardIdx;
-                    cardDiv.dataset.type = 'cascade';
-                    cardDiv.id = `card-${card.id}-c-${colIdx}-${cardIdx}`;
-                    colDiv.appendChild(cardDiv);
-                });
-            }
-            cascDiv.appendChild(colDiv);
-        });
-
-        // re-attach event listeners via delegation (on board scroll)
-        // but we also need to clear selection if board is re-rendered
-        // selection is cleared already in newGame; but moves also cause re-render after move.
-        // after move we will keep no selection. So clear selection after render:
-        clearSelected();
-    }
-
-    // ------------------------------ movement logic ---------------------------------
-    function tryMove(sourceType, sourceIdx, cardIndex, destType, destIdx) {
-        if (gameWon) return false;
-
-        let card = null;
-        // --- extract card from source ---
-        if (sourceType === 'free') {
-            if (freeCells[sourceIdx] === null) return false;
-            card = freeCells[sourceIdx];
-            // only one card
-        } else if (sourceType === 'cascade') {
-            let pile = cascades[sourceIdx];
-            if (cardIndex === undefined || cardIndex < 0 || cardIndex >= pile.length) return false;
-            // only allow if it's the last card? Freecell: can move any card but must be a build.
-            // For simplicity we allow only top card (freecell rule: you can move a card if it's top of cascade or freecell)
-            if (cardIndex !== pile.length - 1) return false;   // only top card
-            card = pile[cardIndex];
-        } else if (sourceType === 'foundation') {
-            // generally not allowed to move from foundation, but we allow to freecell? optional. we disallow
-            return false;
-        } else return false;
-
-        if (!card) return false;
-
-        // --- check destination ---
-        if (destType === 'free') {
-            if (freeCells[destIdx] !== null) return false; // must be empty
-            // move card
-            applyMove(sourceType, sourceIdx, cardIndex, destType, destIdx, card);
-            return true;
-        }
-        else if (destType === 'foundation') {
-            let targetPile = foundations[destIdx];
-            // must be same suit and rank consecutive (A first)
-            if (targetPile.length === 0) {
-                if (card.rank !== 'A') return false;
-            } else {
-                let top = targetPile[targetPile.length-1];
-                // same suit and rank order
-                if (top.suit !== card.suit) return false;
-                let curRankIdx = RANKS.indexOf(card.rank);
-                let topRankIdx = RANKS.indexOf(top.rank);
-                if (curRankIdx !== topRankIdx + 1) return false;
-            }
-            applyMove(sourceType, sourceIdx, cardIndex, destType, destIdx, card);
-            return true;
-        }
-        else if (destType === 'cascade') {
-            let targetPile = cascades[destIdx];
-            if (targetPile.length === 0) {
-                // any card can go to empty cascade
-                applyMove(sourceType, sourceIdx, cardIndex, destType, destIdx, card);
-                return true;
-            } else {
-                let top = targetPile[targetPile.length-1];
-                // alternate colors and descending rank
-                let cardColor = (card.suit === '♥' || card.suit === '♦') ? 'red' : 'black';
-                let topColor = (top.suit === '♥' || top.suit === '♦') ? 'red' : 'black';
-                if (cardColor === topColor) return false; // same color
-                let cardRankIdx = RANKS.indexOf(card.rank);
-                let topRankIdx = RANKS.indexOf(top.rank);
-                if (cardRankIdx !== topRankIdx - 1) return false; // descending (card one less)
-                applyMove(sourceType, sourceIdx, cardIndex, destType, destIdx, card);
-                return true;
+        function shuffle() {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
             }
         }
-        return false;
-    }
 
-    function applyMove(sourceType, sourceIdx, cardIndex, destType, destIdx, card) {
-        // remove from source
-        if (sourceType === 'free') {
-            freeCells[sourceIdx] = null;
-        } else if (sourceType === 'cascade') {
-            cascades[sourceIdx].pop(); // because only top card allowed
+        function startNewGame() {
+            document.querySelectorAll('.slot').forEach(s => s.innerHTML = "");
+            document.getElementById("table-area").innerHTML = "";
+            const win = document.getElementById("win-overlay");
+            if(win) win.remove();
+            
+            createDeck();
+            shuffle();
+
+            deck.forEach((card, i) => {
+                const cardDiv = document.createElement("div");
+                cardDiv.className = "card back " + card.color;
+                cardDiv.innerHTML = card.v + card.s;
+                
+                // Store Data
+                cardDiv.dataset.rank = card.rank;
+                cardDiv.dataset.suit = card.s;
+                cardDiv.dataset.color = card.color;
+
+                // Spread deck out slightly
+                cardDiv.style.left = (20 + (i * 0.5)) + "px";
+                cardDiv.style.top = "20px";
+
+                cardDiv.onclick = function() {
+                    if (this.classList.contains('back')) {
+                        this.classList.remove('back');
+                        makeDraggable(this);
+                    }
+                };
+
+                document.getElementById("table-area").appendChild(cardDiv);
+            });
         }
 
-        // add to destination
-        if (destType === 'free') {
-            freeCells[destIdx] = card;
-        } else if (destType === 'foundation') {
-            foundations[destIdx].push(card);
-        } else if (destType === 'cascade') {
-            cascades[destIdx].push(card);
+        function makeDraggable(el) {
+            let offsetX, offsetY;
+            
+            el.addEventListener('touchstart', function(e) {
+                let t = e.touches[0];
+                offsetX = t.clientX - el.offsetLeft;
+                offsetY = t.clientY - el.offsetTop;
+                el.style.zIndex = 1000;
+            });
+
+            el.addEventListener('touchmove', function(e) {
+                e.preventDefault();
+                let t = e.touches[0];
+                el.style.left = (t.clientX - offsetX) + 'px';
+                el.style.top = (t.clientY - offsetY) + 'px';
+            });
+
+            el.addEventListener('touchend', function(e) {
+                el.style.zIndex = 1;
+                checkDrop(el);
+            });
         }
 
-        renderBoard();
-        if (checkWin()) {
-            // winner message (optional)
-        }
-    }
+        function checkDrop(el) {
+            const slots = document.querySelectorAll('.slot');
+            let snapped = false;
 
-    // ---------------------------- event handling (tap) ------------------------------
-    function handleTap(e) {
-        if (gameWon) return; // no moves after win
+            slots.forEach(slot => {
+                const sR = slot.getBoundingClientRect();
+                const cR = el.getBoundingClientRect();
 
-        let target = e.target.closest('.card, .cell, .empty-pile');
-        if (!target) return;
+                if (cR.left < sR.right && cR.right > sR.left && cR.top < sR.bottom && cR.bottom > sR.top) {
+                    const rank = parseInt(el.dataset.rank);
+                    const suit = el.dataset.suit;
+                    const color = el.dataset.color;
+                    const topCard = slot.lastElementChild;
 
-        // we want card or empty cell (foundation/freecell/cascade placeholder)
-        let type, idx, cardIndex = null;
-
-        // if it's a card
-        if (target.classList.contains('card')) {
-            const dataset = target.dataset;
-            type = dataset.type;      // 'free', 'foundation', 'cascade'
-            if (type === 'free') idx = parseInt(dataset.freeIndex);
-            else if (type === 'foundation') idx = parseInt(dataset.foundIndex);
-            else if (type === 'cascade') {
-                idx = parseInt(dataset.cascadeCol);
-                cardIndex = parseInt(dataset.cardIndex);
-            }
-            // select or move
-            if (!selectedCard) {
-                // select if it's a movable card (free or top of cascade)
-                if (type === 'free' || (type === 'cascade' && cardIndex === cascades[idx].length-1)) {
-                    clearSelected(); // ensure
-                    selectedCard = { type, idx, cardIndex, element: target };
-                    target.classList.add('selected');
-                    selectedDomId = target.id;
-                } else {
-                    // cannot select non-top cascade
+                    // FOUNDATION RULES
+                    if (slot.classList.contains('foundation')) {
+                        if ((!topCard && rank === 1) || (topCard && suit === topCard.dataset.suit && rank === parseInt(topCard.dataset.rank) + 1)) {
+                            snap(el, slot, true);
+                            snapped = true;
+                        }
+                    } 
+                    // TABLEAU RULES
+                    else {
+                        if ((!topCard && rank === 13) || (topCard && color !== topCard.dataset.color && rank === parseInt(topCard.dataset.rank) - 1)) {
+                            snap(el, slot, false);
+                            snapped = true;
+                        }
+                    }
                 }
-            } else {
-                // attempt move from selected to this destination
-                const src = selectedCard;
-                // destination: from target card's container
-                let destType = type;
-                let destIdx = idx;
-                let destCardIdx = cardIndex; // not used for destination
-
-                // if dest is a card inside foundation, destination type foundation
-                // if dest is a card in freecell -> freecell
-                // if cascade card -> cascade
-                // but for empty slots we need separate handling (cell without card)
-                if (tryMove(src.type, src.idx, src.cardIndex, destType, destIdx)) {
-                    // successful move: clear selection (renderBoard already called inside tryMove)
-                    // but renderBoard calls clearSelected after re-render. good.
-                } else {
-                    // invalid move: just clear selection
-                    clearSelected();
-                }
-            }
+            });
         }
-        // handle empty cells (freecell, foundation, empty cascade pile)
-        else if (target.classList.contains('cell') || target.classList.contains('empty-pile')) {
-            // destination only (can't select empty)
-            if (!selectedCard) return; // nothing selected
 
-            let destType, destIdx;
-            if (target.classList.contains('freecell')) {
-                destType = 'free';
-                destIdx = parseInt(target.dataset.freeIndex);
-            } else if (target.classList.contains('foundation')) {
-                destType = 'foundation';
-                destIdx = parseInt(target.dataset.foundIndex);
-            } else if (target.classList.contains('empty-pile')) {
-                destType = 'cascade';
-                destIdx = parseInt(target.dataset.cascadeCol);
-            } else return;
-
-            const src = selectedCard;
-            tryMove(src.type, src.idx, src.cardIndex, destType, destIdx);
-            // clearSelected called inside renderBoard after move, or we do it manually if tryMove fails.
-            if (!tryMove) clearSelected(); 
+        function snap(el, slot, isFoundation) {
+            el.style.left = "0px";
+            el.style.top = isFoundation ? "0px" : (slot.children.length * 20) + "px";
+            slot.appendChild(el);
+            if (isFoundation && parseInt(el.dataset.rank) === 13) checkWin();
         }
-    }
 
-    // ---------------------------- initialization ------------------------------------
-    window.addEventListener('load', () => {
-        const board = document.getElementById('boardScroll');
-        board.addEventListener('touchstart', (e) => {
-            // just to ensure scrolling works; we handle taps
-        }, { passive: true });
-        board.addEventListener('click', handleTap);  // click works on mobile tap
+        function checkWin() {
+            let count = 0;
+            document.querySelectorAll('.foundation').forEach(s => {
+                if (s.lastElementChild && s.lastElementChild.dataset.rank == 13) count++;
+            });
+            if (count === 4) alert("CITYUNICORN VICTORY!");
+        }
 
-        document.getElementById('resetGameBtn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            newGame();
-        });
-
-        // set best display
-        updateBestDisplay();
-        // start new game
-        newGame();
-    });
-})();
-</script>
-</body>
+        startNewGame();
+    </script>
+<script></script></body>
 </html>
