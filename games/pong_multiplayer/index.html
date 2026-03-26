@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Neon Pulse Pong – Multiplayer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            background: #0d0208;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+        .restart-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(188, 19, 254, 0.8);
+            border: none;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 8px 20px;
+            border-radius: 40px;
+            backdrop-filter: blur(4px);
+            cursor: pointer;
+            z-index: 100;
+            font-family: monospace;
+            letter-spacing: 1px;
+            box-shadow: 0 0 10px #bc13fe;
+            transition: 0.2s;
+        }
+        .restart-btn:active {
+            transform: translateX(-50%) scale(0.96);
+            background: #ff00e6;
+        }
+        .instructions {
+            position: fixed;
+            top: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: #ff00e6;
+            font-size: 12px;
+            font-family: monospace;
+            background: rgba(0,0,0,0.5);
+            padding: 4px;
+            pointer-events: none;
+            z-index: 100;
+        }
+        @media (max-width: 600px) {
+            .instructions { font-size: 10px; }
+        }
+        #copyBtn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 8px 12px;
+            background: #ff00e6;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 200;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 8px #ff00e6;
+            transition: 0.2s;
+            display: none; /* hidden until host creates peer */
+        }
+        #copyBtn:active {
+            transform: scale(0.96);
+            background: #bc13fe;
+        }
+        .copy-message {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #bc13fe;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-family: monospace;
+            pointer-events: none;
+            z-index: 200;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .status {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: #ff00e6;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-family: monospace;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 200;
+        }
+    </style>
+    <!-- PeerJS library -->
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div class="instructions">👆 Host: left side → your paddle | Guest: right side → your paddle</div>
+    <button class="restart-btn" id="restartButton">⟳ RESTART (host only)</button>
+    <button id="copyBtn">📎 Copy Invite Link 🦄</button>
+    <div id="copyMessage" class="copy-message">Link copied!</div>
+    <div id="statusMessage" class="status"></div>
+
+    <script>
+        (function(){
+            // --- DOM Elements ---
+            const canvas = document.getElementById("gameCanvas");
+            const ctx = canvas.getContext("2d");
+            const copyBtn = document.getElementById("copyBtn");
+            const copyMessage = document.getElementById("copyMessage");
+            const statusDiv = document.getElementById("statusMessage");
+            
+            // --- Game Configuration ---
+            const BG_COLOR = "#0d0208";
+            const NEON_PURPLE = "#bc13fe";
+            const NEON_PINK = "#ff00e6";
+            const PADDLE_WIDTH = 15;
+            const PADDLE_HEIGHT = 80;
+            const BALL_SIZE = 14;
+            const STEADY_SPEED = 5;
+            
+            // --- Game State (local copy) ---
+            let p1Y = 100, p2Y = 100;
+            let ballX = 0, ballY = 0;
+            let ballDX = STEADY_SPEED, ballDY = STEADY_SPEED;
+            let p1Lives = 3, p2Lives = 3;
+            let countdown = 3;
+            let gameState = "START";
+            let countdownTimer = null;
+            
+            // --- Multiplayer variables ---
+            let peer = null;
+            let connection = null;
+            let isHost = false;
+            let isMultiplayer = false;
+            let myPaddleSide = "left"; // host = left, guest = right
+            
+            // --- Helper: Clamp paddles ---
+            function clampPaddles() {
+                p1Y = Math.min(Math.max(p1Y, 0), canvas.height - PADDLE_HEIGHT);
+                p2Y = Math.min(Math.max(p2Y, 0), canvas.height - PADDLE_HEIGHT);
+            }
+            
+            // --- Resize handler ---
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                clampPaddles();
+                if (ballX > canvas.width) ballX = canvas.width - BALL_SIZE;
+                if (ballX < 0) ballX = 0;
+                if (ballY > canvas.height - BALL_SIZE) ballY = canvas.height - BALL_SIZE;
+                if (ballY < 0) ballY = 0;
+            }
+            
+            // --- Reset ball ---
+            function resetBall() {
+                ballX = canvas.width / 2;
+                ballY = canvas.height / 2;
+                ballDX = (Math.random() > 0.5 ? STEADY_SPEED : -STEADY_SPEED);
+                ballDY = (Math.random() > 0.5 ? STEADY_SPEED : -STEADY_SPEED);
+            }
+            
+            // --- Countdown ---
+            function runCountdown() {
+                if (countdownTimer) clearInterval(countdownTimer);
+                countdown = 3;
+                countdownTimer = setInterval(() => {
+                    countdown--;
+                    if (countdown <= 0) {
+                        clearInterval(countdownTimer);
+                        countdownTimer = null;
+                        gameState = "PLAYING";
+                        if (isMultiplayer && isHost) {
+                            // Host broadcasts start of game
+                            if (connection && connection.open) {
+                                connection.send({ type: "startGame" });
+                            }
+                        }
+                    }
+                }, 1000);
+            }
+            
+            // --- Vibration (only on host? we can still do both) ---
+            function triggerVibrate() {
+                if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            }
+            
+            // --- Game over or next round ---
+            function checkGameOver() {
+                if (p1Lives <= 0 || p2Lives <= 0) {
+                    gameState = "GAMEOVER";
+                    if (countdownTimer) clearInterval(countdownTimer);
+                    if (isMultiplayer && isHost && connection && connection.open) {
+                        connection.send({ type: "gameOver", winner: p1Lives <= 0 ? "guest" : "host" });
+                    }
+                } else {
+                    gameState = "COUNTDOWN";
+                    resetBall();
+                    runCountdown();
+                    if (isMultiplayer && isHost && connection && connection.open) {
+                        connection.send({ type: "resetRound", ballX, ballY, ballDX, ballDY, p1Lives, p2Lives });
+                    }
+                }
+            }
+            
+            // --- Update game (physics) ---
+            function update() {
+                if (gameState !== "PLAYING") return;
+                
+                ballX += ballDX;
+                ballY += ballDY;
+                
+                // Wall bounce
+                if (ballY <= 0 || ballY >= canvas.height - BALL_SIZE) {
+                    ballDY *= -1;
+                    if (isMultiplayer && isHost && connection && connection.open) {
+                        connection.send({ type: "sync", ballX, ballY, ballDX, ballDY, p1Y, p2Y, p1Lives, p2Lives, gameState });
+                    }
+                }
+                
+                // Paddle collisions
+                if (ballX <= 30 && ballY + BALL_SIZE > p1Y && ballY < p1Y + PADDLE_HEIGHT) {
+                    ballDX = Math.abs(ballDX);
+                    if (isMultiplayer && isHost && connection && connection.open) {
+                        connection.send({ type: "sync", ballX, ballY, ballDX, ballDY, p1Y, p2Y, p1Lives, p2Lives, gameState });
+                    }
+                }
+                if (ballX >= canvas.width - 30 - BALL_SIZE && ballY + BALL_SIZE > p2Y && ballY < p2Y + PADDLE_HEIGHT) {
+                    ballDX = -Math.abs(ballDX);
+                    if (isMultiplayer && isHost && connection && connection.open) {
+                        connection.send({ type: "sync", ballX, ballY, ballDX, ballDY, p1Y, p2Y, p1Lives, p2Lives, gameState });
+                    }
+                }
+                
+                // Score events (only host decides)
+                if (ballX < 0) {
+                    p1Lives--;
+                    triggerVibrate();
+                    checkGameOver();
+                    if (isMultiplayer && isHost && connection && connection.open) {
+                        connection.send({ type: "sync", ballX, ballY, ballDX, ballDY, p1Y, p2Y, p1Lives, p2Lives, gameState });
+                    }
+                } else if (ballX > canvas.width) {
+                    p2Lives--;
+                    triggerVibrate();
+                    checkGameOver();
+                    if (isMultiplayer && isHost && connection && connection.open) {
+                        connection.send({ type: "sync", ballX, ballY, ballDX, ballDY, p1Y, p2Y, p1Lives, p2Lives, gameState });
+                    }
+                }
+            }
+            
+            // --- Drawing (shared) ---
+            function draw() {
+                ctx.fillStyle = BG_COLOR;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.strokeStyle = NEON_PURPLE;
+                ctx.setLineDash([10, 10]);
+                ctx.beginPath();
+                ctx.moveTo(canvas.width / 2, 0);
+                ctx.lineTo(canvas.width / 2, canvas.height);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(15, p1Y, PADDLE_WIDTH, PADDLE_HEIGHT);
+                ctx.fillRect(canvas.width - 30, p2Y, PADDLE_WIDTH, PADDLE_HEIGHT);
+                ctx.fillRect(ballX, ballY, BALL_SIZE, BALL_SIZE);
+                
+                ctx.fillStyle = NEON_PINK;
+                for(let i = 0; i < p1Lives; i++) ctx.fillRect(20 + (i * 20), 20, 12, 12);
+                for(let i = 0; i < p2Lives; i++) ctx.fillRect(canvas.width - 40 - (i * 20), 20, 12, 12);
+                
+                ctx.fillStyle = NEON_PINK;
+                ctx.font = "bold 60px 'Arial', monospace";
+                ctx.textAlign = "center";
+                if (gameState === "COUNTDOWN" && countdown > 0) {
+                    ctx.fillText(countdown, canvas.width/2, canvas.height/2);
+                }
+                if (gameState === "GAMEOVER") {
+                    ctx.font = "bold 48px 'Arial', monospace";
+                    ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2 - 40);
+                    ctx.font = "24px monospace";
+                    ctx.fillStyle = "#bc13fe";
+                    ctx.fillText("tap RESTART", canvas.width/2, canvas.height/2 + 40);
+                }
+                ctx.textAlign = "left";
+                
+                // Show multiplayer status
+                if (isMultiplayer) {
+                    ctx.font = "12px monospace";
+                    ctx.fillStyle = "#ff00e6";
+                    ctx.fillText(isHost ? "👑 HOST (left paddle)" : "🎮 GUEST (right paddle)", 10, canvas.height - 10);
+                }
+            }
+            
+            // --- Restart game (host only, resets both sides) ---
+            function restartGame() {
+                if (isMultiplayer && !isHost) {
+                    statusDiv.innerText = "Only host can restart!";
+                    setTimeout(() => statusDiv.innerText = "", 1500);
+                    return;
+                }
+                if (countdownTimer) clearInterval(countdownTimer);
+                p1Lives = 3;
+                p2Lives = 3;
+                p1Y = (canvas.height / 2) - (PADDLE_HEIGHT / 2);
+                p2Y = (canvas.height / 2) - (PADDLE_HEIGHT / 2);
+                clampPaddles();
+                resetBall();
+                gameState = "COUNTDOWN";
+                runCountdown();
+                if (isMultiplayer && isHost && connection && connection.open) {
+                    connection.send({ type: "fullReset", p1Lives, p2Lives, p1Y, p2Y, ballX, ballY, ballDX, ballDY, gameState });
+                }
+            }
+            
+            // --- Touch input (controls only the local player's paddle) ---
+            function handleTouchMove(e) {
+                e.preventDefault();
+                if (!isMultiplayer) {
+                    // Local two-player: both paddles controlled by touches on left/right
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX = canvas.width / rect.width;
+                    const scaleY = canvas.height / rect.height;
+                    for (let t of e.touches) {
+                        let canvasX = (t.clientX - rect.left) * scaleX;
+                        let canvasY = (t.clientY - rect.top) * scaleY;
+                        canvasY = Math.min(Math.max(canvasY, 0), canvas.height);
+                        if (canvasX < canvas.width / 2) {
+                            p1Y = canvasY - (PADDLE_HEIGHT / 2);
+                        } else {
+                            p2Y = canvasY - (PADDLE_HEIGHT / 2);
+                        }
+                    }
+                    clampPaddles();
+                } else {
+                    // Multiplayer: each player controls only their own paddle
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX = canvas.width / rect.width;
+                    const scaleY = canvas.height / rect.height;
+                    const t = e.touches[0];
+                    let canvasY = (t.clientY - rect.top) * scaleY;
+                    canvasY = Math.min(Math.max(canvasY, 0), canvas.height);
+                    let newY = canvasY - (PADDLE_HEIGHT / 2);
+                    
+                    if (myPaddleSide === "left") {
+                        p1Y = newY;
+                        clampPaddles();
+                        if (connection && connection.open) {
+                            connection.send({ type: "paddleMove", side: "left", y: p1Y });
+                        }
+                    } else {
+                        p2Y = newY;
+                        clampPaddles();
+                        if (connection && connection.open) {
+                            connection.send({ type: "paddleMove", side: "right", y: p2Y });
+                        }
+                    }
+                }
+            }
+            
+            // --- PeerJS setup ---
+            function setupPeer() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const inviteId = urlParams.get('invite');
+                
+                if (!inviteId) {
+                    // HOST
+                    isHost = true;
+                    isMultiplayer = true;
+                    myPaddleSide = "left";
+                    peer = new Peer(); // random ID
+                    peer.on('open', (id) => {
+                        const inviteLink = window.location.href + "?invite=" + id;
+                        copyBtn.style.display = "block";
+                        copyBtn.onclick = () => {
+                            navigator.clipboard.writeText(inviteLink).then(() => {
+                                copyBtn.innerText = "Link Copied! ✅";
+                                setTimeout(() => { copyBtn.innerText = "Copy Invite Link 🦄"; }, 2000);
+                            });
+                        };
+                        statusDiv.innerText = `Your invite link ready! Share it.`;
+                    });
+                    peer.on('connection', (conn) => {
+                        connection = conn;
+                        connection.on('open', () => {
+                            statusDiv.innerText = "Guest connected! Starting game...";
+                            // Send initial game state to guest
+                            connection.send({ type: "fullReset", p1Lives, p2Lives, p1Y, p2Y, ballX, ballY, ballDX, ballDY, gameState });
+                        });
+                        connection.on('data', (data) => {
+                            handlePeerData(data);
+                        });
+                        connection.on('close', () => {
+                            statusDiv.innerText = "Guest disconnected. Game over.";
+                            isMultiplayer = false;
+                            connection = null;
+                        });
+                    });
+                } else {
+                    // GUEST
+                    isHost = false;
+                    isMultiplayer = true;
+                    myPaddleSide = "right";
+                    peer = new Peer();
+                    peer.on('open', () => {
+                        connection = peer.connect(inviteId);
+                        connection.on('open', () => {
+                            statusDiv.innerText = "Connected to host!";
+                        });
+                        connection.on('data', (data) => {
+                            handlePeerData(data);
+                        });
+                        connection.on('close', () => {
+                            statusDiv.innerText = "Disconnected from host.";
+                            isMultiplayer = false;
+                            connection = null;
+                        });
+                    });
+                }
+            }
+            
+            // --- Handle incoming peer data ---
+            function handlePeerData(data) {
+                if (!isMultiplayer) return;
+                if (isHost) {
+                    // Host receives guest's paddle moves and maybe others
+                    if (data.type === "paddleMove" && data.side === "right") {
+                        p2Y = data.y;
+                        clampPaddles();
+                    }
+                } else {
+                    // Guest receives game state updates from host
+                    switch(data.type) {
+                        case "fullReset":
+                            p1Lives = data.p1Lives;
+                            p2Lives = data.p2Lives;
+                            p1Y = data.p1Y;
+                            p2Y = data.p2Y;
+                            ballX = data.ballX;
+                            ballY = data.ballY;
+                            ballDX = data.ballDX;
+                            ballDY = data.ballDY;
+                            gameState = data.gameState;
+                            if (gameState === "COUNTDOWN") {
+                                if (countdownTimer) clearInterval(countdownTimer);
+                                // We'll follow host's countdown; but host runs it, we just show countdown number from sync
+                                // For simplicity, we rely on "sync" messages to get countdown value? Better to listen for countdown updates.
+                            }
+                            break;
+                        case "resetRound":
+                            ballX = data.ballX;
+                            ballY = data.ballY;
+                            ballDX = data.ballDX;
+                            ballDY = data.ballDY;
+                            p1Lives = data.p1Lives;
+                            p2Lives = data.p2Lives;
+                            gameState = "COUNTDOWN";
+                            runCountdown(); // restart local countdown (but host will sync after 3 sec)
+                            break;
+                        case "sync":
+                            ballX = data.ballX;
+                            ballY = data.ballY;
+                            ballDX = data.ballDX;
+                            ballDY = data.ballDY;
+                            p1Y = data.p1Y;
+                            p2Y = data.p2Y;
+                            p1Lives = data.p1Lives;
+                            p2Lives = data.p2Lives;
+                            gameState = data.gameState;
+                            break;
+                        case "startGame":
+                            gameState = "PLAYING";
+                            break;
+                        case "gameOver":
+                            gameState = "GAMEOVER";
+                            if (countdownTimer) clearInterval(countdownTimer);
+                            break;
+                    }
+                }
+            }
+            
+            // --- Initialization ---
+            function initGame() {
+                resizeCanvas();
+                p1Lives = 3;
+                p2Lives = 3;
+                p1Y = (canvas.height / 2) - (PADDLE_HEIGHT / 2);
+                p2Y = (canvas.height / 2) - (PADDLE_HEIGHT / 2);
+                clampPaddles();
+                resetBall();
+                gameState = "COUNTDOWN";
+                runCountdown();
+            }
+            
+            // --- Event listeners ---
+            canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+            canvas.addEventListener("touchstart", handleTouchMove, { passive: false });
+            window.addEventListener("resize", () => {
+                resizeCanvas();
+                clampPaddles();
+                if (ballX < 0 || ballX > canvas.width || ballY < 0 || ballY > canvas.height - BALL_SIZE) {
+                    if (gameState === "PLAYING") {
+                        ballX = Math.min(Math.max(ballX, 0), canvas.width - BALL_SIZE);
+                        ballY = Math.min(Math.max(ballY, 0), canvas.height - BALL_SIZE);
+                    } else {
+                        resetBall();
+                    }
+                }
+            });
+            
+            document.getElementById("restartButton").addEventListener("click", () => {
+                restartGame();
+            });
+            
+            // Start everything
+            initGame();
+            setupPeer(); // This will determine if we are host or guest
+            
+            function gameLoop() {
+                if (!isMultiplayer) {
+                    // Local two-player mode (fallback if no peer? Actually setupPeer sets isMultiplayer true always if we start peer)
+                    // But if peer fails to connect? We'll keep it as is.
+                }
+                update();
+                draw();
+                requestAnimationFrame(gameLoop);
+            }
+            gameLoop();
+        })();
+    </script>
+</body>
+</html>
