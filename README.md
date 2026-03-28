@@ -1,6 +1,6 @@
 ## Third-Party Credits
-Some games in this repository are built using the **WASM-4 Fantasy Console**.
 
+​"This site hosts games built with the WASM-4 Fantasy Console (ISC License). Audio, Netplay, and Input systems are powered by the WASM-4 runtime."
 **WASM-4 License (ISC):**
 Copyright (c) Bruno Garcia
 
