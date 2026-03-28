@@ -1,6 +1,10 @@
 ## Third-Party Credits
 
 ​"This site hosts games built with the WASM-4 Fantasy Console (ISC License). Audio, Netplay, and Input systems are powered by the WASM-4 runtime."
+Pong.html
+### Credits
+This game was bundled using the [WASM-4](https://wasm4.org) CLI (ISC License).
+
 **WASM-4 License (ISC):**
 Copyright (c) Bruno Garcia
 
