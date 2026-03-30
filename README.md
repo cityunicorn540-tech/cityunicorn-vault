@@ -1,7 +1,7 @@
 ## Third-Party Credits
 
 ​"This site hosts games built with the WASM-4 Fantasy Console (ISC License). Audio, Netplay, and Input systems are powered by the WASM-4 runtime."
-Pong.html
+Basically "Pong.html" was made using the wasm4 engine and we "Gemini AI" and I changed the colours and changed the wasm4 typescript into a html file using termux. So we didn't keep the 64kb rule for wasm4 games. But Gemini AI said we can try reduce the size of the game. But I said no lol.
 ### Credits
 This game was bundled using the [WASM-4](https://wasm4.org) CLI (ISC License).
 
