@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The CityUnicorn Vault - Browser Games</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦄</text></svg>">
     <style>
@@ -36,7 +36,8 @@
             color: var(--text-primary);
             line-height: 1.6;
             min-height: 100vh;
-            overflow-x: hidden;
+            /* FIX 2: Changed from hidden to auto so scrolling is possible if needed */
+            overflow-x: auto; 
         }
 
         body::before {
@@ -153,7 +154,20 @@
             border-radius: var(--radius-lg);
             overflow: hidden;
         }
-        .game-frame-container { position: relative; padding-top: 56.25%; }
+
+        /* FIX 3: New container for horizontal scrolling on wide games */
+        .game-frame-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch; /* Smooth scroll for mobile */
+        }
+
+        .game-frame-container { 
+            position: relative; 
+            padding-top: 56.25%; 
+            min-width: 800px; /* Set this to the minimum width your Solitaire needs */
+        }
+
         #gameFrame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
         .modal-controls { display: flex; gap: 10px; }
         .modal-btn {
@@ -213,14 +227,16 @@
                     <button class="modal-btn" style="background: #e11d48;" id="closeModal">✕ Close</button>
                 </div>
             </div>
-            <div class="game-frame-container">
-                <iframe id="gameFrame" src="" allowfullscreen></iframe>
+            <div class="game-frame-wrapper">
+                <div class="game-frame-container">
+                    <iframe id="gameFrame" src="" allowfullscreen></iframe>
+                </div>
             </div>
         </div>
     </div>
 
     <footer class="footer">
-        <p>cityunicorn540-tech/cityunicorn-vault is licensed under the MIT License<a href=https://github.com/cityunicorn540-tech/cityunicorn-vault/blob/6a6cef90a4e133a42c58a5d86300419303cb81a7/LICENSE>Click here to view the license https://github.com</a>
+        <p>cityunicorn540-tech/cityunicorn-vault is licensed under the MIT License<a href=https://github.com/cityunicorn540-tech/cityunicorn-vault/blob/6a6cef90a4e133a42c58a5d86300419303cb81a7/LICENSE>Click here to view the license</a>
         
           🦄 CityUnicorn540-tech © 2026</p>
     </footer>
@@ -265,7 +281,7 @@
             },
             {
                 id: 5,
-                title: "Coming Soon",
+                title: "Solitaire",
                 description: "Solitaire for the thinking person. Every move counts.",
                 cover: "🃏",
                 gameUrl: "games/freecell/index.html",
@@ -304,11 +320,13 @@
             document.getElementById('modalGameTitle').textContent = game.title;
             gameFrame.src = game.gameUrl;
             gameModal.classList.add('active');
-            document.body.style.overflow = 'hidden';
+            // FIX 5: Changed to allow scrolling inside the modal while keeping the background static
+            document.body.style.position = 'fixed';
+            document.body.style.width = '100%';
         }
 
         function toggleFullscreen() {
-            const container = document.querySelector('.game-frame-container');
+            const container = document.querySelector('.game-frame-wrapper');
             if (!document.fullscreenElement) container.requestFullscreen();
             else document.exitFullscreen();
         }
@@ -316,7 +334,8 @@
         closeModal.onclick = () => {
             gameModal.classList.remove('active');
             gameFrame.src = '';
-            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
         };
 
         searchInput.oninput = (e) => renderGames(e.target.value);
