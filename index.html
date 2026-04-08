@@ -5,86 +5,213 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>The CityUnicorn Vault - Browser Games</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦄</text></svg>">
-    
     <style>
         :root {
-            --primary-color: #7c3aed; --primary-dark: #5b21b6; --primary-light: #a78bfa;
-            --accent-color: #f472b6; --bg-dark: #0f0f1a; --bg-card: #1a1a2e;
-            --text-primary: #ffffff; --text-secondary: #a0a0b8; --border-color: #2d2d4a;
-            --radius-md: 12px; --radius-lg: 20px; --transition: all 0.3s ease;
+            --primary-color: #7c3aed;
+            --primary-dark: #5b21b6;
+            --primary-light: #a78bfa;
+            --accent-color: #f472b6;
+            --accent-light: #fbcfe8;
+            --bg-dark: #0f0f1a;
+            --bg-card: #1a1a2e;
+            --bg-card-hover: #252542;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b8;
+            --text-muted: #6b6b80;
+            --border-color: #2d2d4a;
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 32px rgba(124, 58, 237, 0.2);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            --transition: all 0.3s ease;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-dark); color: var(--text-primary); overflow-x: hidden; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
 
         body::before {
-            content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(ellipse at 20% 20%, rgba(124, 58, 237, 0.15) 0%, transparent 50%);
-            z-index: -1; pointer-events: none;
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background:
+            radial-gradient(ellipse at 20% 20%, rgba(124, 58, 237, 0.15) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 80%, rgba(244, 114, 182, 0.1) 0%, transparent 50%),
+            repeating-linear-gradient(0deg, transparent, transparent 50px, rgba(124, 58, 237, 0.03) 50px, rgba(124, 58, 237, 0.03) 51px),
+            repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(124, 58, 237, 0.03) 50px, rgba(124, 58, 237, 0.03) 51px);
+            pointer-events: none;
+            z-index: -1;
         }
 
-        .header { background: rgba(26, 26, 46, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 100; }
-        .header-content { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; max-width: 1400px; margin: 0 auto; }
+        .header {
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
         .logo { display: flex; align-items: center; gap: 0.75rem; }
         .logo-icon { font-size: 2.5rem; animation: float 3s ease-in-out infinite; }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-        .logo h1 { font-size: 1.5rem; background: linear-gradient(135deg, var(--primary-light), var(--accent-color)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .logo h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary-light), var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
 
-        .search-container { padding: 0 1.5rem 1rem; max-width: 1400px; margin: 0 auto; }
-        .search-input { width: 100%; padding: 0.875rem 1rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: white; }
+        .search-container { position: relative; margin-top: 10px; }
+        .search-input {
+            width: 100%;
+            padding: 0.875rem 1rem 0.875rem 3rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            color: white;
+        }
+        .search-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); }
 
-        .category-filters { display: flex; gap: 0.5rem; padding: 0 1.5rem 1rem; overflow-x: auto; scrollbar-width: none; }
-        .filter-btn { padding: 0.5rem 1rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
-        .filter-btn.active { background: var(--primary-color); color: white; }
+        .hero { padding: 3rem 1.5rem; text-align: center; }
+        .hero h2 { font-size: 2.5rem; margin-bottom: 0.5rem; color: var(--primary-light); }
+        .hero-stats { display: flex; justify-content: center; gap: 3rem; margin-top: 1.5rem; }
+        .stat { display: flex; flex-direction: column; }
+        .stat-number { font-size: 2rem; font-weight: bold; color: var(--accent-color); }
 
-        .games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
-        .game-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); overflow: hidden; transition: var(--transition); cursor: pointer; }
-        .game-card:hover { transform: translateY(-5px); border-color: var(--primary-color); box-shadow: 0 8px 32px rgba(124, 58, 237, 0.2); }
-        .game-cover { height: 180px; background: linear-gradient(135deg, var(--primary-dark), var(--primary-color)); display: flex; align-items: center; justify-content: center; font-size: 4rem; }
-        .game-info { padding: 1.25rem; }
-        .play-btn { width: 100%; padding: 0.75rem; background: var(--primary-color); border: none; border-radius: 8px; color: white; font-weight: bold; margin-top: 10px; }
+        .games-section { padding: 0 1.5rem 3rem; max-width: 1400px; margin: 0 auto; }
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+        .game-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: var(--transition);
+            animation: fadeInUp 0.5s ease forwards;
+            opacity: 0;
+            cursor: pointer;
+        }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .game-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--primary-color);
+            box-shadow: var(--shadow-lg);
+        }
+        .game-cover {
+            height: 200px;
+            background: linear-gradient(135deg, #2d1b4e, #7c3aed);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 5rem;
+        }
+        .game-info { padding: 1.5rem; }
+        .game-category-badge {
+            font-size: 0.7rem;
+            background: rgba(124,58,237,0.3);
+            padding: 3px 8px;
+            border-radius: 5px;
+            color: var(--primary-light);
+            text-transform: uppercase;
+        }
 
-        .game-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; padding: 1rem; overscroll-behavior-y: contain; }
-        .game-modal.active { display: flex; align-items: center; justify-content: center; }
-        .game-modal-content { background: var(--bg-card); border-radius: var(--radius-lg); width: 100%; max-width: 1000px; height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
-        .game-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border-color); }
-        .game-frame-container { flex-grow: 1; background: #000; position: relative; }
+        .game-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .game-modal.active { display: flex; }
+        .game-modal-content {
+            background: var(--bg-card);
+            width: 95%;
+            max-width: 1100px;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+        .game-frame-container { position: relative; padding-top: 56.25%; }
         #gameFrame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
-        .close-btn { background: #ef4444; color: white; border: none; padding: 5px 15px; border-radius: 5px; cursor: pointer; }
+        .modal-controls { display: flex; gap: 10px; }
+        .modal-btn {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: var(--transition);
+        }
+        .modal-btn:hover { opacity: 0.8; }
 
-        .footer { padding: 2rem; text-align: center; color: var(--text-secondary); font-size: 0.8rem; }
-        .footer a { color: var(--primary-light); text-decoration: none; }
-
-        @media (max-width: 768px) { .games-grid { grid-template-columns: 1fr; } }
+        .footer { padding: 3rem; text-align: center; border-top: 1px solid var(--border-color); margin-top: 50px; }
     </style>
 </head>
 <body>
 
     <header class="header">
         <div class="header-content">
-            <div class="logo"><span class="logo-icon">🦄</span><h1>CityUnicorn Vault</h1></div>
-            <div class="stat"><span class="stat-number" id="totalGames">0</span></div>
-        </div>
-        <div class="search-container">
-            <input type="text" id="searchInput" placeholder="Search the Vault..." class="search-input">
-        </div>
-        <div class="category-filters" id="categoryFilters">
-            <button class="filter-btn active" data-category="all">All Games</button>
-            <button class="filter-btn" data-category="action">Action</button>
-            <button class="filter-btn" data-category="puzzle">Puzzle</button>
-            <button class="filter-btn" data-category="arcade">Arcade</button>
+            <div class="logo">
+                <span class="logo-icon">🦄</span>
+                <h1>CityUnicorn-Vault</h1>
+            </div>
+            <div class="category-filters" id="categoryFilters">
+                <button class="modal-btn" data-category="all">All Games</button>
+            </div>
         </div>
     </header>
 
     <main>
-        <div class="games-grid" id="gamesGrid"></div>
+        <section class="hero">
+            <h2>The Game Collection</h2>
+            <p>Hand-picked browser experiences.</p>
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-number" id="totalGames">5</span>
+                    <span class="stat-label">GAMES LIVE</span>
+                </div>
+            </div>
+            <div class="search-container" style="max-width: 500px; margin: 20px auto;">
+                <input type="text" id="searchInput" placeholder="Search the vault..." class="search-input">
+            </div>
+        </section>
+
+        <section class="games-section">
+            <div class="games-grid" id="gamesGrid"></div>
+        </section>
     </main>
 
     <div class="game-modal" id="gameModal">
         <div class="game-modal-content">
-            <div class="game-modal-header">
-                <h3 id="modalGameTitle">Loading Game...</h3>
-                <button class="close-btn" id="closeModal">✕ CLOSE</button>
+            <div style="padding: 15px; display: flex; justify-content: space-between; align-items: center; background: #111;">
+                <h3 id="modalGameTitle">Game</h3>
+                <div class="modal-controls">
+                    <button class="modal-btn" onclick="toggleFullscreen()">📺 Fullscreen</button>
+                    <button class="modal-btn" style="background: #e11d48;" id="closeModal">✕ Close</button>
+                </div>
             </div>
             <div class="game-frame-container">
                 <iframe id="gameFrame" src="" allowfullscreen></iframe>
@@ -93,53 +220,83 @@
     </div>
 
     <footer class="footer">
-        <p>cityunicorn540-tech/cityunicorn-vault is licensed under the MIT License. <a href="https://github.com/cityunicorn540-tech/cityunicorn-vault/blob/6a6cef90a4e133a42c58a5d86300419303cb81a7/LICENSE">View License</a></p>
-        <p>🦄 CityUnicorn540-tech © 2026</p>
+        <p>cityunicorn540-tech/cityunicorn-vault is licensed under the MIT License. All games on this website are under the MIT license.<a href=https://github.com/cityunicorn540-tech/cityunicorn-vault/blob/6a6cef90a4e133a42c58a5d86300419303cb81a7/LICENSE>Click here to view the license https://github.com</a>
+        
+          🦄 CityUnicorn540-tech © 2026</p>
     </footer>
 
     <script>
         const gamesData = [
-            { id: 1, title: "Retro Snake", description: "A Snake Game", cover: "🐍", gameUrl: "games/neon-snake/index.html", category: "arcade" },
-            { id: 2, title: "Puzzle 2048", description: "A Puzzle Game", cover: "🧩", gameUrl: "games/puzzle-2048/index.html", category: "puzzle" },
-            { id: 3, title: "Squad-Ops", description: "A Battle Royale With 10 Levels.", cover: "🏆", gameUrl: "games/squad_ops/index.html", category: "action" },
-            { id: 8, title: "Neon Pong", description: "A Multiplayer Pong Game.", cover: "🏓", gameUrl: "games/neon-pong/index.html", category: "sport" }
+            {
+                id: 1,
+                title: "Neon Snake",
+                description: "A neon-infused classic. Eat, grow, and don't hit the walls!",
+                cover: "🐍",
+                gameUrl: "games/neon-snake/index.html",
+                category: "arcade",
+                author: "CityUnicorn"
+            },
+            {
+                id: 2,
+                title: "Puzzle 2048",
+                description: "The ultimate logic challenge. Can you reach the 2048 tile?",
+                cover: "🧩",
+                gameUrl: "games/puzzle-2048/index.html",
+                category: "puzzle",
+                author: "CityUnicorn"
+            },
+            {
+                id: 3,
+                title: "Coming Soon",
+                description: "A fun Multiplayer Pong Game",
+                cover: "🏓",
+                gameUrl: "games/pong/index.html",
+                category: "sport",
+                author: "Cityunicorn540-tech"
+            },
+            {
+                id: 4,
+                title: "Squad Ops",
+                description: "A fun battle royale game with 10 levels",
+                cover: "🔫",
+                gameUrl: "games/squad_ops/index.html",
+                category: "action",
+                author: "Cityunicorn540-tech"
+            },
+            {
+                id: 5,
+                title: "Coming Soon",
+                description: "Solitaire for the thinking person. Every move counts.",
+                cover: "🃏",
+                gameUrl: "games/freecell/index.html",
+                category: "strategy",
+                author: "CityUnicorn540-tech"
+            }
         ];
 
         const gamesGrid = document.getElementById('gamesGrid');
-        const searchInput = document.getElementById('searchInput');
         const gameModal = document.getElementById('gameModal');
         const gameFrame = document.getElementById('gameFrame');
-        const totalGamesEl = document.getElementById('totalGames');
+        const closeModal = document.getElementById('closeModal');
+        const searchInput = document.getElementById('searchInput');
 
-        let currentCategory = 'all';
-        let searchQuery = '';
-
-        // Anti-refresh logic
-        function handleTouchMove(e) {
-            // Only trigger if modal is active and at the top
-            if (gameModal.classList.contains('active') && window.scrollY === 0) {
-                e.preventDefault();
-            }
-        }
-
-        function renderGames() {
-            const filtered = gamesData.filter(game => {
-                const matchesCat = currentCategory === 'all' || game.category === currentCategory;
-                const matchesSearch = game.title.toLowerCase().includes(searchQuery.toLowerCase());
-                return matchesCat && matchesSearch;
-            });
-
-            gamesGrid.innerHTML = filtered.map(game => `
-                <div class="game-card" onclick="openGame(${game.id})">
+        function renderGames(filter = '') {
+            const filtered = gamesData.filter(g => 
+                g.title.toLowerCase().includes(filter.toLowerCase()) || 
+                g.category.toLowerCase().includes(filter.toLowerCase())
+            );
+            
+            gamesGrid.innerHTML = filtered.map((game, index) => `
+                <div class="game-card" style="animation-delay: ${index * 0.1}s" onclick="openGame(${game.id})">
                     <div class="game-cover">${game.cover}</div>
                     <div class="game-info">
-                        <h3 class="game-title">${game.title}</h3>
-                        <p class="game-description">${game.description}</p>
-                        <button class="play-btn">PLAY NOW</button>
+                        <span class="game-category-badge">${game.category}</span>
+                        <h3 style="margin-top:10px">${game.title}</h3>
+                        <p style="color: #a0a0b8; font-size: 0.9rem; margin: 10px 0;">${game.description}</p>
+                        <button class="modal-btn" style="width:100%; background: var(--primary-color);">PLAY NOW</button>
                     </div>
                 </div>
             `).join('');
-            totalGamesEl.textContent = gamesData.length;
         }
 
         function openGame(id) {
@@ -148,35 +305,26 @@
             gameFrame.src = game.gameUrl;
             gameModal.classList.add('active');
             document.body.style.overflow = 'hidden';
-            
-            // Add the event listener when game starts
-            document.addEventListener('touchmove', handleTouchMove, { passive: false });
         }
 
-        document.getElementById('closeModal').onclick = () => {
+        function toggleFullscreen() {
+            const container = document.querySelector('.game-frame-container');
+            if (!document.fullscreenElement) container.requestFullscreen();
+            else document.exitFullscreen();
+        }
+
+        closeModal.onclick = () => {
             gameModal.classList.remove('active');
             gameFrame.src = '';
             document.body.style.overflow = '';
-            
-            // Remove the listener so user can scroll the list again
-            document.removeEventListener('touchmove', handleTouchMove);
         };
 
-        searchInput.addEventListener('input', (e) => {
-            searchQuery = e.target.value;
+        searchInput.oninput = (e) => renderGames(e.target.value);
+
+        window.onload = () => {
             renderGames();
-        });
-
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.onclick = () => {
-                document.querySelector('.filter-btn.active').classList.remove('active');
-                btn.classList.add('active');
-                currentCategory = btn.dataset.category;
-                renderGames();
-            };
-        });
-
-        renderGames();
+            document.getElementById('totalGames').textContent = gamesData.length;
+        };
     </script>
 </body>
 </html>
