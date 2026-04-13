@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="author" content="cityunicorn540-tech">
+    <title>Neon Orbit | CityUnicorn</title>
+    <style>
+        body { 
+            background: #0d0208; color: #fff; text-align: center; 
+            font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; 
+            touch-action: none; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; height: 100vh;
+        }
+        h1 { color: #bc13fe; text-shadow: 0 0 15px #ff00e6; font-size: 1.8rem; margin: 0; }
+        .dev-credit { color: #bc13fe; font-size: 0.75rem; margin-top: 8px; margin-bottom: 25px; opacity: 0.7; }
+        #canvas-frame { padding: 4px; border: 2px solid #bc13fe; border-radius: 18px; box-shadow: 0 0 25px rgba(188, 19, 254, 0.4); }
+        canvas { background: #1a1a2e; border-radius: 14px; display: block; }
+        #score-val { color: #00ff41; font-size: 1.4rem; font-weight: bold; margin-top: 15px; }
+        .mobile-note { font-size: 0.75rem; color: #666; margin-top: 8px; }
+    </style>
+</head>
+<body>
+
+    <h1>🪐 NEON ORBIT</h1>
+    <p class="dev-credit">Developed by Gemini AI in collab with cityunicorn540-tech</p>
+    
+    <div id="canvas-frame">
+        <canvas id="stage" width="300" height="375"></canvas>
+    </div>
+    
+    <div id="score-val">Score: <span id="val">0</span></div>
+    <p class="mobile-note">Tap to Reverse Orbit · Avoid Pink Debris</p>
+
+    <script>
+        const canvas = document.getElementById('stage');
+        const ctx = canvas.getContext('2d');
+        const valEl = document.getElementById('val');
+
+        let score = 0;
+        let isGameOver = false;
+        const center = { x: 150, y: 187 };
+        const orbitRadius = 80;
+
+        let player = { angle: 0, speed: 0.04, size: 10 };
+        let star = { angle: Math.random() * Math.PI * 2 };
+        let enemies = [];
+
+        // UPDATED: Fixed speed per request
+        function spawnEnemy() {
+            if (enemies.length < 4) {
+                enemies.push({
+                    angle: Math.random() * Math.PI * 2,
+                    // FIXED SPEED: No more closing gaps!
+                    speed: 0.02, 
+                    size: 12
+                });
+            }
+        }
+
+        function resetGame() {
+            score = 0;
+            valEl.textContent = "0";
+            isGameOver = false;
+            enemies = [];
+            player.angle = 0;
+            player.speed = 0.04;
+        }
+
+        function update() {
+            if (isGameOver) return;
+
+            // Update Player Position
+            player.angle += player.speed;
+
+            // Star Collection Logic
+            let pX = center.x + Math.cos(player.angle) * orbitRadius;
+            let pY = center.y + Math.sin(player.angle) * orbitRadius;
+            let sX = center.x + Math.cos(star.angle) * orbitRadius;
+            let sY = center.y + Math.sin(star.angle) * orbitRadius;
+
+            let distToStar = Math.hypot(pX - sX, pY - sY);
+            if (distToStar < 20) {
+                score += 10;
+                valEl.textContent = score;
+                star.angle = Math.random() * Math.PI * 2;
+                if (score === 10 || (score > 10 && score % 100 === 0)) spawnEnemy();
+            }
+
+            // Enemy Logic
+            enemies.forEach(en => {
+                en.angle += en.speed;
+                let eX = center.x + Math.cos(en.angle) * orbitRadius;
+                let eY = center.y + Math.sin(en.angle) * orbitRadius;
+                
+                if (Math.hypot(pX - eX, pY - eY) < (player.size + en.size)) {
+                    isGameOver = true;
+                }
+            });
+        }
+
+        function draw() {
+            ctx.fillStyle = "#1a1a2e";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Orbit Path
+            ctx.strokeStyle = "rgba(188, 19, 254, 0.2)";
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, orbitRadius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Draw Center Planet
+            ctx.fillStyle = "#bc13fe";
+            ctx.shadowBlur = 20; ctx.shadowColor = "#ff00e6";
+            ctx.beginPath(); ctx.arc(center.x, center.y, 25, 0, Math.PI * 2); ctx.fill();
+
+            // Draw Star (Yellow)
+            let sX = center.x + Math.cos(star.angle) * orbitRadius;
+            let sY = center.y + Math.sin(star.angle) * orbitRadius;
+            ctx.fillStyle = "#ffff00"; ctx.shadowColor = "#ffff00";
+            ctx.beginPath(); ctx.arc(sX, sY, 6, 0, Math.PI * 2); ctx.fill();
+
+            // Draw Enemies (Pink)
+            ctx.fillStyle = "#ff00ff"; ctx.shadowColor = "#ff00ff";
+            enemies.forEach(en => {
+                let eX = center.x + Math.cos(en.angle) * orbitRadius;
+                let eY = center.y + Math.sin(en.angle) * orbitRadius;
+                ctx.fillRect(eX - en.size/2, eY - en.size/2, en.size, en.size);
+            });
+
+            // Draw Player (Purple Circle)
+            let pX = center.x + Math.cos(player.angle) * orbitRadius;
+            let pY = center.y + Math.sin(player.angle) * orbitRadius;
+            ctx.fillStyle = "#bc13fe"; ctx.shadowColor = "#ff00e6";
+            ctx.beginPath(); ctx.arc(pX, pY, player.size, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            if (isGameOver) {
+                ctx.fillStyle = "rgba(0,0,0,0.8)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "white";
+                ctx.font = "bold 20px Segoe UI";
+                ctx.textAlign = "center";
+                ctx.fillText("ORBIT DECAYED", canvas.width/2, canvas.height/2);
+                ctx.font = "14px Segoe UI";
+                ctx.fillText("Tap to Re-entry", canvas.width/2, canvas.height/2 + 30);
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        document.addEventListener('touchstart', e => { 
+            if(isGameOver) { resetGame(); return; }
+            player.speed *= -1; // Reverse Direction!
+        }, {passive: false});
+
+        loop();
+    </script>
+</body>
+  </html>
