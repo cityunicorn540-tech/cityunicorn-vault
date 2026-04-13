@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>♠️ Solitaire · Klondike</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(145deg, #1a4a2e 0%, #0f3b22 100%);
+      font-family: 'Segoe UI', 'Roboto', system-ui, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 8px 4px;
+    }
+
+    .game-wrapper {
+      max-width: 500px;
+      width: 100%;
+      background: rgba(10, 30, 15, 0.5);
+      backdrop-filter: blur(2px);
+      border-radius: 32px;
+      padding: 16px 10px 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      border: 1px solid #5b8c5c;
+    }
+
+    /* top bar: stock, waste, foundations */
+    .top-panel {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      padding: 0 2px;
+    }
+
+    .stock-waste {
+      display: flex;
+      gap: 10px;
+    }
+
+    .pile {
+      background: #2a5a2a;
+      border-radius: 12px;
+      box-shadow: inset 0 2px 5px rgba(0,0,0,0.4), 0 5px 0 #1d3a1d;
+      border: 1px solid #7da77d;
+    }
+
+    .stock, .waste {
+      width: 70px;
+      height: 96px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .foundations {
+      display: flex;
+      gap: 8px;
+    }
+
+    .foundation {
+      width: 70px;
+      height: 96px;
+      background: #1e3b1e;
+      border-radius: 12px;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.5), 0 5px 0 #142814;
+      border: 1px dashed #7ca57c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.1s;
+    }
+
+    .foundation.occupied {
+      border-style: solid;
+      border-color: #c9b26b;
+      background: #235523;
+    }
+
+    /* tableau */
+    .tableau {
+      display: flex;
+      justify-content: space-around;
+      gap: 4px;
+      margin-top: 5px;
+    }
+
+    .column {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      background: transparent;
+      border-radius: 0 0 14px 14px;
+      padding: 5px 0 8px;
+    }
+
+    .card-slot {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      margin-bottom: -18px;  /* overlap effect */
+    }
+
+    .card {
+      width: 68px;
+      height: 96px;
+      background: #f5f2e8;
+      border-radius: 8px;
+      box-shadow: 0 5px 0 #1f2e1f, 0 2px 8px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 24px;
+      border: 1px solid #ddd2b0;
+      transition: transform 0.1s, box-shadow 0.1s;
+      position: relative;
+      color: #1a1a1a;
+      will-change: transform;
+      touch-action: manipulation;
+    }
+
+    .card.back {
+      background: repeating-linear-gradient(45deg, #2b5e2b, #2b5e2b 8px, #1f451f 8px, #1f451f 16px);
+      border: 1px solid #7a9e7a;
+      box-shadow: inset 0 0 0 2px #3f7840, 0 5px 0 #1a2e1a;
+      color: transparent;
+    }
+
+    .card.red { color: #c53a3a; }
+    .card.black { color: #1f2a1f; }
+
+    .card-corner {
+      align-self: flex-start;
+      margin-left: 4px;
+      margin-top: 2px;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .card-center {
+      font-size: 34px;
+      line-height: 1;
+      margin-top: -5px;
+    }
+
+    .empty-slot {
+      width: 68px;
+      height: 96px;
+      border-radius: 8px;
+      background: rgba(30, 60, 30, 0.7);
+      box-shadow: inset 0 0 0 2px #5d8c5d, 0 5px 0 #1a301a;
+      border: 1px dashed #aacfaa;
+    }
+
+    .selected .card {
+      transform: translateY(-6px);
+      box-shadow: 0 8px 0 #1f2e1f, 0 6px 12px gold;
+      border: 2px solid #f5e37a;
+    }
+
+    button {
+      background: #e0c57b;
+      border: none;
+      border-radius: 40px;
+      padding: 12px 24px;
+      font-weight: bold;
+      font-size: 18px;
+      color: #1e3a1e;
+      box-shadow: 0 6px 0 #7a5f2e, 0 2px 8px black;
+      border: 1px solid #f5e3a9;
+      margin-top: 18px;
+      width: fit-content;
+      margin-left: auto;
+      margin-right: auto;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: 0.05s linear;
+    }
+
+    button:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 #7a5f2e, 0 2px 6px black;
+    }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 12px 6px 0;
+      color: #e9f0da;
+      font-weight: 500;
+      text-shadow: 2px 2px 0 #1a2a1a;
+    }
+
+    #message {
+      background: #1e3a1ecc;
+      padding: 6px 14px;
+      border-radius: 30px;
+      font-size: 15px;
+      backdrop-filter: blur(4px);
+      border: 1px solid #b3a577;
+    }
+
+    .restart-btn {
+      background: #9fbf9f;
+      box-shadow: 0 5px 0 #4e6e4e;
+      padding: 8px 18px;
+      font-size: 16px;
+    }
+
+    /* mobile fine-tune */
+    @media (max-width: 420px) {
+      .card, .empty-slot, .stock, .waste, .foundation {
+        width: 58px;
+        height: 82px;
+      }
+      .card-center { font-size: 28px; }
+      .card-corner { font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+<div class="game-wrapper">
+  <div class="top-panel">
+    <div class="stock-waste">
+      <div id="stockPile" class="stock pile"></div>
+      <div id="wastePile" class="waste pile"></div>
+    </div>
+    <div class="foundations" id="foundationsContainer"></div>
+  </div>
+
+  <div id="tableauContainer" class="tableau"></div>
+
+  <div class="status-bar">
+    <span id="message">♣️ New game</span>
+    <button id="newGameBtn" class="restart-btn">🔄 New</button>
+  </div>
+</div>
+
+<script>
+  (function(){
+    "use strict";
+
+    // ---------- CARD UTILS ----------
+    const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
+    const SYMBOLS = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
+    const COLORS = { hearts: 'red', diamonds: 'red', clubs: 'black', spades: 'black' };
+    const RANK_MAP = { 'A':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13 };
+    const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+
+    // Game state
+    let deck = [];
+    let stock = [];         // face down cards
+    let waste = [];         // face up, only top playable
+    let foundations = [[], [], [], []];
+    let tableau = [[], [], [], [], [], [], []];
+    
+    // Selection
+    let selected = null;    // { type: 'waste' } or { type: 'tableau', col: index, cardIdx: index }
+    
+    let gameWon = false;
+
+    // DOM elements
+    const stockEl = document.getElementById('stockPile');
+    const wasteEl = document.getElementById('wastePile');
+    const foundationsEl = document.getElementById('foundationsContainer');
+    const tableauEl = document.getElementById('tableauContainer');
+    const msgEl = document.getElementById('message');
+
+    // ---------- HELPER FUNCTIONS ----------
+    function createDeck() {
+      const d = [];
+      for (let s of SUITS) {
+        for (let r of RANKS) {
+          d.push({
+            suit: s,
+            rank: r,
+            value: RANK_MAP[r],
+            color: COLORS[s],
+            symbol: SYMBOLS[s],
+            faceUp: true
+          });
+        }
+      }
+      return shuffle(d);
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    // Deal initial tableau
+    function dealGame() {
+      const freshDeck = createDeck();
+      // clear
+      stock = [];
+      waste = [];
+      foundations = [[], [], [], []];
+      tableau = [[], [], [], [], [], [], []];
+      
+      let deckIdx = 0;
+      // Deal to tableau: col 0 gets 1 card face up, col 1: 1 down + 1 up ... col 6: 6 down + 1 up
+      for (let col = 0; col < 7; col++) {
+        for (let row = 0; row <= col; row++) {
+          const card = freshDeck[deckIdx++];
+          card.faceUp = (row === col); // last card face up
+          tableau[col].push(card);
+        }
+      }
+      // remaining cards become stock
+      stock = freshDeck.slice(deckIdx).map(c => { c.faceUp = false; return c; });
+      
+      gameWon = false;
+      selected = null;
+      render();
+      setMessage('♠️ Draw & play');
+    }
+
+    // ---------- MOVE VALIDATION ----------
+    function canMoveToFoundation(card, foundationPile) {
+      if (!card) return false;
+      if (foundationPile.length === 0) {
+        return card.value === 1; // Ace
+      }
+      const topCard = foundationPile[foundationPile.length - 1];
+      return (card.suit === topCard.suit) && (card.value === topCard.value + 1);
+    }
+
+    function canMoveToTableau(cardsToMove, targetCol) {
+      if (!cardsToMove || cardsToMove.length === 0) return false;
+      const movingCard = cardsToMove[0]; // bottom of moving stack (lowest rank)
+      const targetPile = tableau[targetCol];
+      
+      if (targetPile.length === 0) {
+        return movingCard.value === 13; // King to empty column
+      }
+      const targetTop = targetPile[targetPile.length - 1];
+      if (!targetTop.faceUp) return false;
+      // opposite color and rank = targetTop.value - 1
+      return (movingCard.color !== targetTop.color) && (movingCard.value === targetTop.value - 1);
+    }
+
+    // Check if a sequence in tableau column from startIdx is valid (alternating, descending)
+    function isValidSequence(col, startIdx) {
+      const pile = tableau[col];
+      for (let i = startIdx; i < pile.length - 1; i++) {
+        const current = pile[i];
+        const next = pile[i+1];
+        if (!current.faceUp || !next.faceUp) return false;
+        if (current.color === next.color) return false;
+        if (current.value !== next.value + 1) return false;
+      }
+      return true;
+    }
+
+    // ---------- CORE MOVE ATTEMPT ----------
+    function attemptMove(source, target) {
+      if (gameWon) return false;
+      
+      // Moving from waste
+      if (source.type === 'waste') {
+        if (waste.length === 0) return false;
+        const card = waste[waste.length - 1];
+        
+        if (target.type === 'foundation') {
+          const fIdx = target.index;
+          if (canMoveToFoundation(card, foundations[fIdx])) {
+            foundations[fIdx].push(waste.pop());
+            afterMoveCleanup();
+            return true;
+          }
+        } else if (target.type === 'tableau') {
+          const tCol = target.column;
+          if (canMoveToTableau([card], tCol)) {
+            tableau[tCol].push(waste.pop());
+            afterMoveCleanup();
+            return true;
+          }
+        }
+        return false;
+      }
+      
+      // Moving from tableau
+      if (source.type === 'tableau') {
+        const srcCol = source.col;
+        const srcPile = tableau[srcCol];
+        if (srcPile.length === 0) return false;
+        const cardIdx = source.cardIdx;
+        if (!srcPile[cardIdx].faceUp) return false;
+        
+        // Validate sequence if moving multiple
+        if (!isValidSequence(srcCol, cardIdx)) return false;
+        
+        const movingCards = srcPile.slice(cardIdx);
+        
+        if (target.type === 'foundation') {
+          // Only allowed if moving exactly one card
+          if (movingCards.length !== 1) return false;
+          const card = movingCards[0];
+          const fIdx = target.index;
+          if (canMoveToFoundation(card, foundations[fIdx])) {
+            foundations[fIdx].push(card);
+            srcPile.splice(cardIdx, 1);
+            afterMoveCleanup(srcCol);
+            return true;
+          }
+        } else if (target.type === 'tableau') {
+          const tCol = target.column;
+          if (tCol === srcCol) return false; // same column
+          if (canMoveToTableau(movingCards, tCol)) {
+            // move cards
+            tableau[tCol].push(...movingCards);
+            srcPile.splice(cardIdx, movingCards.length);
+            afterMoveCleanup(srcCol);
+            return true;
+          }
+        }
+        return false;
+      }
+      return false;
+    }
+
+    function afterMoveCleanup(srcTableauCol = null) {
+      // Flip last card of source tableau if needed
+      if (srcTableauCol !== null) {
+        const pile = tableau[srcTableauCol];
+        if (pile.length > 0 && !pile[pile.length - 1].faceUp) {
+          pile[pile.length - 1].faceUp = true;
+        }
+      }
+      
+      // Check win
+      const totalFoundation = foundations.reduce((sum, f) => sum + f.length, 0);
+      if (totalFoundation === 52) {
+        gameWon = true;
+        setMessage('🎉 You win! Perfect!');
+      } else {
+        setMessage('');
+      }
+      
+      selected = null;
+      render();
+    }
+
+    // ---------- STOCK ACTION ----------
+    function drawFromStock() {
+      if (gameWon) return;
+      if (stock.length > 0) {
+        const card = stock.pop();
+        card.faceUp = true;
+        waste.push(card);
+      } else {
+        // recycle waste to stock
+        if (waste.length === 0) return;
+        stock = waste.reverse().map(c => { c.faceUp = false; return c; });
+        waste = [];
+      }
+      selected = null;
+      render();
+      setMessage(stock.length ? '📤 Draw' : '♻️ Recycle');
+    }
+
+    // ---------- RENDER ----------
+    function render() {
+      renderStockWaste();
+      renderFoundations();
+      renderTableau();
+    }
+
+    function renderStockWaste() {
+      // Stock
+      stockEl.innerHTML = '';
+      if (stock.length > 0) {
+        const backCard = createCardElement({ faceUp: false }, true);
+        stockEl.appendChild(backCard);
+      } else {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'empty-slot';
+        emptyDiv.style.background = '#2d5a3d';
+        stockEl.appendChild(emptyDiv);
+      }
+      
+      // Waste
+      wasteEl.innerHTML = '';
+      if (waste.length > 0) {
+        const topCard = waste[waste.length - 1];
+        const cardEl = createCardElement(topCard);
+        if (selected && selected.type === 'waste') {
+          cardEl.classList.add('selected');
+        }
+        wasteEl.appendChild(cardEl);
+      } else {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'empty-slot';
+        wasteEl.appendChild(emptyDiv);
+      }
+    }
+
+    function renderFoundations() {
+      foundationsEl.innerHTML = '';
+      foundations.forEach((pile, idx) => {
+        const fDiv = document.createElement('div');
+        fDiv.className = `foundation pile ${pile.length ? 'occupied' : ''}`;
+        fDiv.dataset.foundation = idx;
+        if (pile.length > 0) {
+          const topCard = pile[pile.length - 1];
+          fDiv.appendChild(createCardElement(topCard));
+        } else {
+          const placeholder = document.createElement('div');
+          placeholder.className = 'empty-slot';
+          placeholder.style.background = '#2a5530';
+          placeholder.style.opacity = '0.7';
+          fDiv.appendChild(placeholder);
+        }
+        foundationsEl.appendChild(fDiv);
+      });
+    }
+
+    function renderTableau() {
+      tableauEl.innerHTML = '';
+      for (let col = 0; col < 7; col++) {
+        const columnDiv = document.createElement('div');
+        columnDiv.className = 'column';
+        columnDiv.dataset.column = col;
+        
+        const pile = tableau[col];
+        if (pile.length === 0) {
+          const emptySlot = document.createElement('div');
+          emptySlot.className = 'empty-slot';
+          emptySlot.style.marginBottom = '2px';
+          columnDiv.appendChild(emptySlot);
+        } else {
+          pile.forEach((card, cardIdx) => {
+            const cardWrapper = document.createElement('div');
+            cardWrapper.className = 'card-slot';
+            const cardEl = createCardElement(card);
+            
+            // highlight if selected
+            if (selected && selected.type === 'tableau' && selected.col === col && selected.cardIdx === cardIdx) {
+              cardEl.classList.add('selected');
+            }
+            
+            cardWrapper.appendChild(cardEl);
+            columnDiv.appendChild(cardWrapper);
+          });
+        }
+        tableauEl.appendChild(columnDiv);
+      }
+    }
+
+    function createCardElement(card, forceBack = false) {
+      const div = document.createElement('div');
+      div.className = `card ${!forceBack && card.faceUp ? (card.color === 'red' ? 'red' : 'black') : 'back'}`;
+      
+      if (!forceBack && card.faceUp) {
+        div.innerHTML = `
+          <div class="card-corner">${card.rank}${card.symbol}</div>
+          <div class="card-center">${card.symbol}</div>
+        `;
+      } else {
+        div.innerHTML = ''; // back design via CSS
+      }
+      return div;
+    }
+
+    function setMessage(text) {
+      if (!gameWon) msgEl.innerText = text || '♣️ Tap to play';
+      else msgEl.innerText = '🎉 You win! 🎉';
+    }
+
+    // ---------- EVENT HANDLING (delegation) ----------
+    function handleContainerClick(e) {
+      if (gameWon) return;
+      
+      const target = e.target.closest('[data-column], .foundation, .stock, .waste, .card');
+      if (!target) return;
+      
+      // Stock click
+      if (target.closest('#stockPile') || target.closest('.stock')) {
+        drawFromStock();
+        return;
+      }
+      
+      // Waste click
+      if (target.closest('#wastePile') || target.closest('.waste')) {
+        if (waste.length === 0) return;
+        
+        // if already selected waste -> deselect
+        if (selected && selected.type === 'waste') {
+          selected = null;
+          render();
+          return;
+        }
+        // else select waste
+        selected = { type: 'waste' };
+        render();
+        setMessage('♠️ Waste selected');
+        return;
+      }
+      
+      // Foundation click (as target for move)
+      const foundationEl = target.closest('.foundation');
+      if (foundationEl) {
+        const fIdx = foundationEl.dataset.foundation;
+        if (fIdx === undefined) return;
+        
+        if (selected) {
+          // attempt move to foundation
+          const success = attemptMove(selected, { type: 'foundation', index: parseInt(fIdx) });
+          if (!success) {
+            setMessage('❌ Invalid move');
+            selected = null;
+            render();
+          }
+        } else {
+          // cannot select foundation
+        }
+        return;
+      }
+      
+      // Tableau column click
+      const columnEl = target.closest('[data-column]');
+      if (columnEl) {
+        const col = parseInt(columnEl.dataset.column);
+        const pile = tableau[col];
+        
+        // find which card was clicked (if any)
+        let cardIdx = -1;
+        const cardEl = target.closest('.card');
+        if (cardEl) {
+          const allCards = Array.from(columnEl.querySelectorAll('.card'));
+          cardIdx = allCards.indexOf(cardEl);
+        }
+        
+        // If no card clicked -> empty column (target)
+        if (cardIdx === -1 && pile.length === 0) {
+          if (selected) {
+            const success = attemptMove(selected, { type: 'tableau', column: col });
+            if (!success) {
+              setMessage('❌ Cannot move there');
+              selected = null;
+              render();
+            }
+          }
+          return;
+        }
+        
+        // Card clicked inside tableau
+        if (cardIdx !== -1) {
+          const clickedCard = pile[cardIdx];
+          
+          // Case: we have a selection
+          if (selected) {
+            // if same card -> deselect
+            if (selected.type === 'tableau' && selected.col === col && selected.cardIdx === cardIdx) {
+              selected = null;
+              render();
+              return;
+            }
+            // attempt move to this column
+            const success = attemptMove(selected, { type: 'tableau', column: col });
+            if (!success) {
+              setMessage('❌ Invalid move');
+              selected = null;
+              render();
+            }
+            return;
+          }
+          
+          // No selection: try to select this card
+          if (!clickedCard.faceUp) return; // can't select face down
+          
+          // Check if this card and below form valid movable sequence
+          if (isValidSequence(col, cardIdx)) {
+            selected = { type: 'tableau', col: col, cardIdx: cardIdx };
+            setMessage(`Selected ${clickedCard.rank}${clickedCard.symbol}`);
+            render();
+          } else {
+            setMessage('⚠️ Cannot move that stack');
+          }
+          return;
+        }
+      }
+    }
+
+    // New game
+    function newGame() {
+      dealGame();
+      selected = null;
+      render();
+      setMessage('🃏 New deal');
+    }
+
+    // ---------- INITIALIZE ----------
+    function init() {
+      dealGame();
+      
+      // Event listeners
+      document.querySelector('.game-wrapper').addEventListener('click', handleContainerClick);
+      document.getElementById('newGameBtn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        newGame();
+      });
+      
+      // Prevent context menu on long press
+      document.querySelectorAll('.card, .pile').forEach(el => {
+        el.addEventListener('contextmenu', (e) => e.preventDefault());
+      });
+    }
+
+    init();
+  })();
+</script>
+</body>
+</html>
+```
