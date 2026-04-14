@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="author" content="Gemini AI × cityunicorn540-tech">
+    <title>Neon Leap | CityUnicorn</title>
+    <style>
+        body { 
+            background: #0d0208; color: #fff; text-align: center; 
+            font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; 
+            touch-action: none; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; height: 100vh;
+        }
+        h1 { color: #bc13fe; text-shadow: 0 0 15px #ff00e6; font-size: 1.8rem; margin: 0; }
+        .dev-credit { color: #bc13fe; font-size: 0.75rem; margin-top: 8px; margin-bottom: 25px; opacity: 0.7; }
+        #canvas-frame { padding: 4px; border: 2px solid #bc13fe; border-radius: 18px; box-shadow: 0 0 25px rgba(188, 19, 254, 0.4); }
+        canvas { background: #1a1a2e; border-radius: 14px; display: block; }
+        #score-val { color: #00ff41; font-size: 1.4rem; font-weight: bold; margin-top: 15px; }
+        .mobile-note { font-size: 0.75rem; color: #666; margin-top: 8px; }
+    </style>
+</head>
+<body>
+
+    <h1>🔺 NEON LEAP</h1>
+    <p class="dev-credit">Produced by Gemini AI × cityunicorn540-tech</p>
+    
+    <div id="canvas-frame">
+        <canvas id="stage" width="300" height="375"></canvas>
+    </div>
+    
+    <div id="score-val">Score: <span id="val">0</span></div>
+    <p class="mobile-note">Tap to Jump · Auto-Bounces off Walls</p>
+
+    <script>
+        const canvas = document.getElementById('stage');
+        const ctx = canvas.getContext('2d');
+        const valEl = document.getElementById('val');
+
+        let score = 0;
+        let isGameOver = false;
+
+        // Player setup with horizontal direction (dir)
+        let player = { 
+            x: 150, y: 320, 
+            vy: 0, gravity: 0.4, jump: -7.5, 
+            size: 12, dir: 2.2 
+        };
+        
+        let star = { x: 150, y: 100 };
+        let enemies = [];
+
+        function spawnEnemy() {
+            if (enemies.length < 5) {
+                enemies.push({
+                    x: Math.random() < 0.5 ? -50 : 320,
+                    y: 60 + Math.random() * 180,
+                    vx: (1.5 + Math.random()) * (Math.random() < 0.5 ? 1 : -1),
+                    width: 45,
+                    height: 8
+                });
+            }
+        }
+
+        function resetGame() {
+            score = 0;
+            valEl.textContent = "0";
+            isGameOver = false;
+            enemies = [];
+            player.y = 320;
+            player.x = 150;
+            player.vy = 0;
+            player.dir = 2.2;
+        }
+
+        function update() {
+            if (isGameOver) return;
+
+            // Vertical Physics
+            player.vy += player.gravity;
+            player.y += player.vy;
+
+            // Horizontal Physics (The Auto-Bounce)
+            player.x += player.dir;
+            if (player.x > 285 || player.x < 15) {
+                player.dir *= -1; // Reverse direction on wall hit
+            }
+
+            // Floor & Ceiling Logic
+            if (player.y > 340) { player.y = 340; player.vy = 0; }
+            if (player.y < 0) { player.y = 0; player.vy = 0; }
+
+            // Star Collection
+            let distToStar = Math.hypot(player.x - star.x, player.y - star.y);
+            if (distToStar < 22) {
+                score += 10;
+                valEl.textContent = score;
+                star.x = 30 + Math.random() * 240;
+                star.y = 50 + Math.random() * 150;
+                spawnEnemy(); 
+            }
+
+            // Slicer Enemy Logic
+            enemies.forEach(en => {
+                en.x += en.vx;
+                if (en.x > 330) en.x = -60;
+                if (en.x < -60) en.x = 330;
+
+                // Collision detection
+                if (player.x + 8 > en.x && player.x - 8 < en.x + en.width &&
+                    player.y + 8 > en.y && player.y - 8 < en.y + en.height) {
+                    isGameOver = true;
+                }
+            });
+        }
+
+        function draw() {
+            ctx.fillStyle = "#1a1a2e";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Star (Yellow Glow)
+            ctx.fillStyle = "#ffff00"; ctx.shadowBlur = 15; ctx.shadowColor = "#ffff00";
+            ctx.beginPath(); ctx.arc(star.x, star.y, 8, 0, Math.PI * 2); ctx.fill();
+
+            // Draw Enemies (Pink Slicers)
+            ctx.fillStyle = "#ff00ff"; ctx.shadowColor = "#ff00ff";
+            enemies.forEach(en => ctx.fillRect(en.x, en.y, en.width, en.height));
+
+            // Draw Player (Neon Triangle)
+            ctx.fillStyle = "#bc13fe"; ctx.shadowBlur = 20; ctx.shadowColor = "#ff00e6";
+            ctx.beginPath();
+            ctx.moveTo(player.x, player.y - player.size);
+            ctx.lineTo(player.x - player.size, player.y + player.size);
+            ctx.lineTo(player.x + player.size, player.y + player.size);
+            ctx.closePath();
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            if (isGameOver) {
+                ctx.fillStyle = "rgba(0,0,0,0.85)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#ff0040";
+                ctx.font = "bold 22px Segoe UI";
+                ctx.textAlign = "center";
+                ctx.fillText("FLIGHT TERMINATED", canvas.width/2, canvas.height/2);
+                ctx.fillStyle = "white";
+                ctx.font = "14px Segoe UI";
+                ctx.fillText("Tap to Re-launch", canvas.width/2, canvas.height/2 + 40);
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        document.addEventListener('touchstart', e => { 
+            if(isGameOver) { resetGame(); return; }
+            player.vy = player.jump; // The Leap!
+        }, {passive: false});
+
+        loop();
+    </script>
+</body>
+</html>
