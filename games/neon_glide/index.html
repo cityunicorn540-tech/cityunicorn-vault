@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="author" content="Gemini AI × cityunicorn540-tech">
+  <title>Neon Glide | Balanced & Deadly</title>
+  <style>
+    * {
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background: #050505;
+      color: #fff;
+      text-align: center;
+      font-family: 'Segoe UI', system-ui, -apple-system, 'Roboto', sans-serif;
+      margin: 0;
+      padding: 0;
+      touch-action: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+      height: 100%;
+    }
+    h1 {
+      color: #00f3ff;
+      text-shadow: 0 0 20px #00f3ff;
+      font-size: clamp(1.4rem, 6vw, 1.8rem);
+      margin: 0;
+      letter-spacing: 1px;
+    }
+    .dev-credit {
+      color: #00f3ff;
+      font-size: 0.7rem;
+      margin-top: 6px;
+      margin-bottom: 12px;
+      opacity: 0.8;
+    }
+    #canvas-frame {
+      padding: 4px;
+      border: 2px solid #00f3ff;
+      border-radius: 24px;
+      box-shadow: 0 0 30px rgba(0, 243, 255, 0.3);
+      background: rgba(0, 243, 255, 0.05);
+    }
+    canvas {
+      background: #000;
+      border-radius: 18px;
+      display: block;
+      width: 100%;
+      height: auto;
+      cursor: pointer;
+      touch-action: none;
+    }
+    .glide-control {
+      background: rgba(0, 20, 30, 0.7);
+      backdrop-filter: blur(8px);
+      border-radius: 40px;
+      margin-top: 18px;
+      padding: 12px 20px;
+      width: calc(100% - 40px);
+      max-width: 320px;
+      text-align: center;
+      border: 1px solid #00f3ff88;
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+      transition: all 0.1s ease;
+      touch-action: none;
+    }
+    .glide-control.active {
+      background: #00f3ff22;
+      border-color: #00f3ff;
+      box-shadow: 0 0 25px #00f3ff;
+    }
+    .control-label {
+      font-size: 0.75rem;
+      letter-spacing: 2px;
+      color: #0af;
+      text-transform: uppercase;
+      font-weight: bold;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .control-label span {
+      font-size: 1.1rem;
+    }
+    .touch-strip {
+      height: 40px;
+      background: linear-gradient(90deg, #00f3ff22, #00f3ff88, #00f3ff22);
+      border-radius: 30px;
+      position: relative;
+      margin-top: 4px;
+      touch-action: none;
+    }
+    .finger-hint {
+      font-size: 0.65rem;
+      opacity: 0.7;
+      margin-top: 6px;
+      color: #aaf;
+    }
+    #score-val {
+      color: #00ff41;
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-top: 10px;
+      text-shadow: 0 0 5px #00ff41;
+      font-family: monospace;
+    }
+    @media (max-width: 480px) {
+      .glide-control {
+        margin-top: 12px;
+        padding: 10px 16px;
+      }
+      .touch-strip {
+        height: 36px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>⚡ NEON GLIDE</h1>
+  <p class="dev-credit">
+    Produced by Gemini AI × cityunicorn540-tech
+  </p>
+
+  <div id="canvas-frame">
+    <canvas id="stage" width="300" height="400"></canvas>
+  </div>
+
+  <div id="glideControlZone" class="glide-control">
+    <div class="control-label">
+      <span>👆</span> SWIPE TO GLIDE <span>👉</span>
+    </div>
+    <div class="touch-strip"></div>
+    <div class="finger-hint">
+      ← slide anywhere here →
+    </div>
+  </div>
+
+  <div id="score-val">
+    Distance: <span id="val">0</span>m
+  </div>
+
+  <script>
+    (function() {
+      const canvas = document.getElementById('stage');
+      const ctx = canvas.getContext('2d');
+      const valEl = document.getElementById('val');
+      const controlZone = document.getElementById('glideControlZone');
+
+      // Game state
+      let score = 0;
+      let isGameOver = false;
+      let gameSpeed = 3;
+
+      // Player
+      let player = {
+        x: 150, targetX: 150, y: 350, size: 12
+      };
+      let obstacles = [];
+
+      // --- spawn obstacles (smaller: 20-45px) ---
+      function spawnObstacle() {
+        const width = 20 + Math.random() * 25; // 20-45px
+        const height = 10 + Math.random() * 12;
+        obstacles.push({
+          x: Math.random() * (canvas.width - width),
+          y: -height,
+          width: width,
+          height: height,
+          color: Math.random() > 0.6 ? "#ff0055": "#ffcc00"
+        });
+      }
+
+      // --- reset game ---
+      function resetGame() {
+        score = 0;
+        gameSpeed = 3;
+        valEl.textContent = "0";
+        isGameOver = false;
+        obstacles = [];
+        player.x = canvas.width / 2;
+        player.targetX = canvas.width / 2;
+      }
+
+      // --- touch mapping ---
+      function updateTargetFromTouch(clientX, referenceElement) {
+        if (isGameOver) return;
+        const rect = referenceElement.getBoundingClientRect();
+        let ratio = (clientX - rect.left) / rect.width;
+        ratio = Math.min(Math.max(ratio, 0), 1);
+        let mappedX = ratio * canvas.width;
+        let bounded = Math.min(Math.max(mappedX, player.size), canvas.width - player.size);
+        player.targetX = bounded;
+        if (referenceElement === controlZone) {
+          controlZone.classList.add('active');
+          setTimeout(() => controlZone.classList.remove('active'), 80);
+        }
+      }
+
+      // --- UPDATE with difficulty tweaks (no invincibility) ---
+      function update() {
+        if (isGameOver) return;
+
+        // Smooth movement
+        player.x += (player.targetX - player.x) * 0.22;
+
+        // Boundaries
+        if (player.x < player.size) player.x = player.size;
+        if (player.x > canvas.width - player.size) player.x = canvas.width - player.size;
+        if (player.targetX < player.size) player.targetX = player.size;
+        if (player.targetX > canvas.width - player.size) player.targetX = canvas.width - player.size;
+
+        // Score & difficulty (max speed 9, slower increase)
+        score += 0.1;
+        valEl.textContent = Math.floor(score);
+        if (gameSpeed < 9) gameSpeed += 0.0012; // max 9
+
+        // Spawn rate capped at 7% per frame
+        let spawnRate = 0.04 + (gameSpeed / 280);
+        if (spawnRate > 0.07) spawnRate = 0.07;
+        if (Math.random() < spawnRate) spawnObstacle();
+
+        // Update obstacles and collision (instant death)
+        for (let i = 0; i < obstacles.length; i++) {
+          const ob = obstacles[i];
+          ob.y += gameSpeed;
+
+          // Collision detection → game over
+          if (player.x + player.size > ob.x &&
+            player.x - player.size < ob.x + ob.width &&
+            player.y + player.size > ob.y &&
+            player.y - player.size < ob.y + ob.height) {
+            isGameOver = true;
+          }
+
+          // Remove offscreen
+          if (ob.y > canvas.height) {
+            obstacles.splice(i, 1);
+            i--;
+          }
+        }
+      }
+
+      // --- DRAW (with death flash) ---
+      function draw() {
+        // Trail
+        ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Obstacles
+        for (const ob of obstacles) {
+          ctx.shadowBlur = 12;
+          ctx.shadowColor = ob.color;
+          ctx.fillStyle = ob.color;
+          ctx.fillRect(ob.x, ob.y, ob.width, ob.height);
+          ctx.shadowBlur = 4;
+          ctx.fillStyle = "#fff8";
+          ctx.fillRect(ob.x + 2, ob.y + 2, ob.width - 4, 2);
+        }
+
+                    // Draw Player
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "#00f3ff";
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.shadowBlur = 0;
+
+        // Game over overlay
+        if (isGameOver) {
+          ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "#00f3ff";
+          ctx.font = "bold 24px 'Segoe UI', system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText("SYSTEM CRASH", canvas.width/2, canvas.height/2 - 20);
+          ctx.fillStyle = "#ddd";
+          ctx.font = "16px 'Segoe UI'";
+          ctx.fillText("Tap anywhere to reboot", canvas.width/2, canvas.height/2 + 35);
+          ctx.font = "12px monospace";
+          ctx.fillStyle = "#00ffaa";
+          ctx.fillText("one hit = game over", canvas.width/2, canvas.height - 25);
+        } else {
+          // HUD hint
+          ctx.globalAlpha = 0.5;
+          ctx.font = "10px monospace";
+          ctx.fillStyle = "#0af";
+          ctx.textAlign = "right";
+          ctx.fillText("← swipe anywhere below →", canvas.width - 12, 20);
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // --- GAME LOOP ---
+      function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+      }
+
+      // --- TOUCH HANDLING (canvas + control zone) ---
+      function attachTouchZone(element) {
+        element.addEventListener('touchmove', (e) => {
+          e.preventDefault();
+          if (isGameOver) return;
+          if (e.touches.length) {
+            updateTargetFromTouch(e.touches[0].clientX, element);
+          }
+        },
+          {
+            passive: false
+          });
+
+        element.addEventListener('touchstart',
+          (e) => {
+            e.preventDefault();
+            if (e.touches.length) {
+              const touch = e.touches[0];
+              if (isGameOver) {
+                resetGame();
+                updateTargetFromTouch(touch.clientX, element);
+                const rect = element.getBoundingClientRect();
+                let ratio = (touch.clientX - rect.left) / rect.width;
+                let mappedX = Math.min(Math.max(ratio * canvas.width, player.size), canvas.width - player.size);
+                player.x = mappedX;
+                player.targetX = mappedX;
+              } else {
+                updateTargetFromTouch(touch.clientX, element);
+              }
+            }
+          },
+          {
+            passive: false
+          });
+      }
+
+      attachTouchZone(canvas);
+      attachTouchZone(controlZone);
+
+      // Mouse fallback (desktop testing)
+      function handleMouseMove(e,
+        element) {
+        if (isGameOver) return;
+        updateTargetFromTouch(e.clientX, element);
+      }
+      function handleMouseDown(e, element) {
+        if (isGameOver) {
+          resetGame();
+          updateTargetFromTouch(e.clientX, element);
+          const rect = element.getBoundingClientRect();
+          let ratio = (e.clientX - rect.left) / rect.width;
+          let mappedX = Math.min(Math.max(ratio * canvas.width, player.size), canvas.width - player.size);
+          player.x = mappedX;
+          player.targetX = mappedX;
+        } else {
+          updateTargetFromTouch(e.clientX, element);
+        }
+        e.preventDefault();
+      }
+
+      canvas.addEventListener('mousemove', (e) => handleMouseMove(e, canvas));
+      canvas.addEventListener('mousedown', (e) => handleMouseDown(e, canvas));
+      controlZone.addEventListener('mousemove', (e) => handleMouseMove(e, controlZone));
+      controlZone.addEventListener('mousedown', (e) => handleMouseDown(e, controlZone));
+
+      canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+      controlZone.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      // Resize clamp
+      window.addEventListener('resize', () => {
+        if (!isGameOver) {
+          let newClamped = Math.min(Math.max(player.x, player.size), canvas.width - player.size);
+          player.x = newClamped;
+          player.targetX = newClamped;
+        }
+      });
+
+      // Start
+      resetGame();
+      gameLoop();
+    })();
+  </script>
+</body>
+  </html>
