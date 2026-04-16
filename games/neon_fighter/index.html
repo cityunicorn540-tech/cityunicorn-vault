@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🔥 Neon Ship Fighter 🔥</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #000;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Courier New', monospace;
+            touch-action: none;
+        }
+        .game-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            display: block;
+            border: 3px solid #00ffff;
+            box-shadow: 0 0 30px #00ffff;
+            background: #000;
+            max-width: 100%;
+            height: auto;
+        }
+        .hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 10;
+            color: #00ffff;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00ffff;
+        }
+        .boss-warning {            position: absolute;
+            top: 50px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: #ff4444;
+            font-size: 1.8rem;
+            font-weight: bold;
+            text-shadow: 0 0 20px #ff0000;
+            pointer-events: none;
+            z-index: 10;
+            display: none;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.7; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 0.7; transform: scale(1); }
+        }
+        .game-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff0055;
+            font-size: 3.5rem;
+            font-weight: bold;
+            text-shadow: 0 0 30px #ff0055;
+            text-align: center;
+            pointer-events: none;
+            z-index: 20;
+            display: none;
+        }
+        .restart-hint {
+            font-size: 1.5rem;
+            color: #aaa;
+            margin-top: 20px;
+        }
+        .instruction {
+            color: #888;
+            margin-top: 10px;
+            font-size: 1rem;
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div class="hud">
+        <span>SCORE: <span id="scoreDisplay">0</span></span>        <span>🎯 NEXT BOSS: <span id="nextBossDisplay">100</span></span>
+    </div>
+    <div class="boss-warning" id="bossWarning">⚠️ MEGASHIP BOSS ⚠️</div>
+    <div class="game-overlay" id="gameOverlay">
+        GAME OVER
+        <div class="restart-hint">Tap to restart</div>
+    </div>
+    <div class="instruction">👆 Touch / Move — Tap to Shoot</div>
+</div>
+
+<script>
+    (function(){
+        "use strict";
+
+        // ----- CANVAS & CONTEXT -----
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreSpan = document.getElementById('scoreDisplay');
+        const nextBossSpan = document.getElementById('nextBossDisplay');
+        const bossWarningDiv = document.getElementById('bossWarning');
+        const gameOverlayDiv = document.getElementById('gameOverlay');
+
+        // ----- AUDIO (Pure Web Audio, no external files) -----
+        let audioCtx = null;
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch(e) {
+                console.warn('Web Audio not supported');
+            }
+        }
+        function playLaser() {
+            if (!audioCtx) initAudio();
+            if (!audioCtx) return;
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.value = 880;
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start();
+            osc.stop(now + 0.1);
+        }
+        function playBossPlasma() {            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.value = 220;
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start();
+            osc.stop(now + 0.15);
+        }
+        function playBossExplosion() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = 150;
+            gain.gain.setValueAtTime(0.35, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start();
+            osc.stop(now + 0.4);
+        }
+
+        // Unlock audio on first user interaction
+        document.body.addEventListener('touchstart', function unlock() {
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        }, { once: true, passive: true });
+
+        // ----- GAME STATE -----
+        let gameActive = true;
+        let score = 0;
+        let nextBossThreshold = 100;
+        let bossActive = false;
+        
+        let projectiles = [];
+        let bossProjectiles = []; // Green plasma from boss
+        let enemies = [];
+        let particles = [];
+        let lastSpawnTime = 0;
+        let lastBossShotTime = 0;
+
+        // ----- PLAYER -----
+        const player = {
+            x: 0,
+            y: 0,
+            size: 16,
+            color: '#00f2ff'        };
+
+        // ----- FLYING SHIP BOSS -----
+        const bossShip = {
+            active: false,
+            health: 0,
+            maxHealth: 0,
+            x: 0,
+            y: 100,
+            width: 80,
+            height: 50,
+            speed: 1.8,
+            shootCooldown: 1200, // ms between shots
+            lastShot: 0,
+            targetX: 0,
+            targetY: 0,
+            angle: 0
+        };
+
+        // ----- CANVAS SIZING -----
+        function resizeCanvas() {
+            canvas.width = Math.min(400, window.innerWidth * 0.95);
+            canvas.height = Math.min(700, window.innerHeight * 0.85);
+            player.x = Math.min(canvas.width - 20, Math.max(20, canvas.width / 2));
+            player.y = canvas.height - 50;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // ----- PARTICLE SYSTEM -----
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 7;
+                this.vy = (Math.random() - 0.5) * 7;
+                this.alpha = 1;
+                this.size = Math.random() * 5 + 2;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= 0.015;
+            }
+            draw() {
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // ----- SPAWN FUNCTIONS -----
+        function spawnNormalEnemy() {
+            enemies.push({
+                x: Math.random() * (canvas.width - 30) + 15,
+                y: -25,
+                width: 24,
+                height: 24,
+                speed: 2.8,
+                color: '#00ff88'
+            });
+        }
+
+        function spawnBossShip() {
+            bossShip.active = true;
+            bossActive = true;
+            bossShip.health = 80 + Math.floor(score / 5);
+            bossShip.maxHealth = bossShip.health;
+            bossShip.x = canvas.width / 2;
+            bossShip.y = -80; // Start above screen
+            bossShip.width = 80;
+            bossShip.height = 50;
+            bossShip.speed = 1.8;
+            bossShip.shootCooldown = Math.max(600, 1200 - score / 10); // Faster shooting at higher scores
+            bossShip.lastShot = Date.now();
+            bossShip.targetX = player.x;
+            bossShip.targetY = player.y - 150;
+            bossShip.angle = 0;
+            
+            bossWarningDiv.style.display = 'block';
+        }
+
+        // ----- INPUT HANDLING -----
+        function handleStart(e) {
+            e.preventDefault();
+            if (!gameActive) {
+                restartGame();
+                return;
+            }
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            if (clientX) {
+                player.x = Math.min(canvas.width - 15, Math.max(15, clientX - rect.left));
+            }
+            fireProjectile();
+        }
+        function handleMove(e) {
+            e.preventDefault();
+            if (!gameActive) return;
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            if (clientX) {
+                player.x = Math.min(canvas.width - 15, Math.max(15, clientX - rect.left));
+            }
+        }
+
+        function fireProjectile() {
+            if (!gameActive) return;
+            projectiles.push({
+                x: player.x,
+                y: player.y - 20,
+                speed: 9,
+                width: 4,
+                height: 14
+            });
+            playLaser();
+        }
+
+        // Event listeners
+        canvas.addEventListener('touchstart', handleStart, { passive: false });
+        canvas.addEventListener('touchmove', handleMove, { passive: false });
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('mousemove', handleMove);
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // ----- UPDATE LOGIC -----
+        function update() {
+            if (!gameActive) return;
+
+            // Normal enemy spawning (only if boss not active)
+            if (!bossShip.active && Date.now() - lastSpawnTime > 1000) {
+                spawnNormalEnemy();
+                lastSpawnTime = Date.now();
+            }
+
+            // Boss spawn check (every 100 points)
+            if (!bossShip.active && score >= nextBossThreshold) {
+                spawnBossShip();
+                nextBossThreshold += 100;
+                nextBossSpan.textContent = nextBossThreshold;
+            }
+
+            // ----- Update player projectiles -----
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];                p.y -= p.speed;
+                
+                if (p.y + p.height < 0) {
+                    projectiles.splice(i, 1);
+                    continue;
+                }
+
+                let projectileUsed = false;
+
+                // Collision with boss ship
+                if (bossShip.active) {
+                    if (p.x > bossShip.x - bossShip.width/2 && 
+                        p.x < bossShip.x + bossShip.width/2 &&
+                        p.y > bossShip.y - bossShip.height/2 && 
+                        p.y < bossShip.y + bossShip.height/2) {
+                        
+                        bossShip.health -= 8;
+                        projectileUsed = true;
+                        
+                        // Hit particles
+                        for (let k = 0; k < 5; k++) {
+                            particles.push(new Particle(p.x, p.y, '#00ff88'));
+                        }
+                        
+                        if (bossShip.health <= 0) {
+                            // Boss defeated!
+                            bossShip.active = false;
+                            bossActive = false;
+                            bossWarningDiv.style.display = 'none';
+                            score += 50;
+                            scoreSpan.textContent = score;
+                            playBossExplosion();
+                            
+                            // Big explosion particles
+                            for (let j = 0; j < 60; j++) {
+                                particles.push(new Particle(bossShip.x, bossShip.y, '#ffaa00'));
+                            }
+                        }
+                    }
+                }
+
+                // Collision with normal enemies
+                if (!projectileUsed) {
+                    for (let eIdx = enemies.length - 1; eIdx >= 0; eIdx--) {
+                        const enemy = enemies[eIdx];
+                        if (p.x > enemy.x && p.x < enemy.x + enemy.width &&
+                            p.y > enemy.y && p.y < enemy.y + enemy.height) {
+                            
+                            projectileUsed = true;
+                            enemies.splice(eIdx, 1);                            score += 10;
+                            scoreSpan.textContent = score;
+                            
+                            for (let k = 0; k < 8; k++) {
+                                particles.push(new Particle(enemy.x + 12, enemy.y + 12, enemy.color));
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                if (projectileUsed) {
+                    projectiles.splice(i, 1);
+                }
+            }
+
+            // ----- Update boss projectiles (green plasma) -----
+            for (let i = bossProjectiles.length - 1; i >= 0; i--) {
+                const bp = bossProjectiles[i];
+                bp.x += bp.vx;
+                bp.y += bp.vy;
+                
+                // Remove if off screen
+                if (bp.y > canvas.height + 20 || bp.y < -20 || bp.x < -20 || bp.x > canvas.width + 20) {
+                    bossProjectiles.splice(i, 1);
+                    continue;
+                }
+                
+                // Collision with player
+                const dx = player.x - bp.x;
+                const dy = player.y - bp.y;
+                if (Math.hypot(dx, dy) < player.size + 8) {
+                    gameActive = false;
+                    gameOverlayDiv.style.display = 'block';
+                    // Explosion on hit
+                    for (let k = 0; k < 15; k++) {
+                        particles.push(new Particle(bp.x, bp.y, '#00ff44'));
+                    }
+                    return;
+                }
+            }
+
+            // ----- Update normal enemies & player collision -----
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const e = enemies[i];
+                e.y += e.speed;
+                
+                const dx = player.x - (e.x + e.width/2);
+                const dy = (player.y - player.size/2) - (e.y + e.height/2);
+                if (Math.hypot(dx, dy) < player.size + e.width/2) {                    gameActive = false;
+                    gameOverlayDiv.style.display = 'block';
+                    return;
+                }
+                
+                if (e.y > canvas.height + 50) {
+                    enemies.splice(i, 1);
+                }
+            }
+
+            // ----- Update boss ship -----
+            if (bossShip.active) {
+                // Chase player with smooth following
+                bossShip.targetX = player.x;
+                bossShip.targetY = player.y - 180; // Stay above player
+                
+                // Smooth movement
+                bossShip.x += (bossShip.targetX - bossShip.x) * 0.03;
+                bossShip.y += (bossShip.targetY - bossShip.y) * 0.03;
+                
+                // Add slight bobbing motion
+                bossShip.angle += 0.05;
+                bossShip.y += Math.sin(bossShip.angle) * 0.3;
+                
+                // Keep boss within bounds
+                bossShip.x = Math.max(bossShip.width/2 + 10, Math.min(canvas.width - bossShip.width/2 - 10, bossShip.x));
+                bossShip.y = Math.max(60, Math.min(canvas.height/2, bossShip.y));
+                
+                // Boss shooting logic
+                const now = Date.now();
+                if (now - bossShip.lastShot > bossShip.shootCooldown) {
+                    // Shoot 1-3 plasma bolts at player
+                    const shotCount = Math.random() < 0.3 ? 3 : (Math.random() < 0.7 ? 2 : 1);
+                    
+                    for (let s = 0; s < shotCount; s++) {
+                        const spread = (s - Math.floor(shotCount/2)) * 15;
+                        const dx = player.x + spread - bossShip.x;
+                        const dy = player.y - bossShip.y;
+                        const dist = Math.hypot(dx, dy);
+                        const speed = 4.5;
+                        
+                        bossProjectiles.push({
+                            x: bossShip.x + (s === 1 ? 0 : s === 0 ? -20 : 20),
+                            y: bossShip.y + 15,
+                            vx: (dx / dist) * speed,
+                            vy: (dy / dist) * speed,
+                            radius: 8,
+                            color: '#00ff44'
+                        });
+                    }                    bossShip.lastShot = now;
+                    playBossPlasma();
+                }
+                
+                // Boss vs player collision
+                const dx = player.x - bossShip.x;
+                const dy = player.y - bossShip.y;
+                if (Math.hypot(dx, dy) < player.size + Math.min(bossShip.width, bossShip.height)/2) {
+                    gameActive = false;
+                    gameOverlayDiv.style.display = 'block';
+                    return;
+                }
+            }
+
+            // ----- Update particles -----
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                if (particles[i].alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            nextBossSpan.textContent = nextBossThreshold;
+        }
+
+        // ----- DRAWING -----
+        function draw() {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Starfield effect
+            ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < 50; i++) {
+                if (i % 2 === 0) continue;
+                ctx.globalAlpha = 0.5 + Math.sin(Date.now() * 0.001 + i) * 0.3;
+                ctx.fillRect((i * 23) % canvas.width, (i * 13 + Date.now() * 0.2) % canvas.height, 1.5, 1.5);
+            }
+            ctx.globalAlpha = 1;
+
+            // Player ship (triangle)
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = player.color;
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            ctx.moveTo(player.x, player.y - player.size);
+            ctx.lineTo(player.x - player.size, player.y + player.size/2);
+            ctx.lineTo(player.x - 5, player.y + player.size/2);
+            ctx.lineTo(player.x - 5, player.y + player.size);
+            ctx.lineTo(player.x + 5, player.y + player.size);
+            ctx.lineTo(player.x + 5, player.y + player.size/2);            ctx.lineTo(player.x + player.size, player.y + player.size/2);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Engine glow
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#ff8800';
+            ctx.beginPath();
+            ctx.moveTo(player.x - 4, player.y + player.size);
+            ctx.lineTo(player.x, player.y + player.size + 8);
+            ctx.lineTo(player.x + 4, player.y + player.size);
+            ctx.fill();
+
+            // Normal enemies (neon squares)
+            ctx.shadowColor = '#00ff88';
+            ctx.strokeStyle = '#00ff88';
+            ctx.lineWidth = 2.5;
+            enemies.forEach(e => {
+                ctx.strokeRect(e.x, e.y, e.width, e.height);
+            });
+
+            // Boss flying ship
+            if (bossShip.active) {
+                ctx.save();
+                ctx.translate(bossShip.x, bossShip.y);
+                
+                // Ship body (angular futuristic design)
+                ctx.shadowBlur = 25;
+                ctx.shadowColor = '#ff44aa';
+                
+                // Main hull
+                ctx.fillStyle = '#221133';
+                ctx.strokeStyle = '#ff44aa';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(0, -bossShip.height/2); // nose
+                ctx.lineTo(-bossShip.width/2, bossShip.height/3);
+                ctx.lineTo(-bossShip.width/3, bossShip.height/2);
+                ctx.lineTo(bossShip.width/3, bossShip.height/2);
+                ctx.lineTo(bossShip.width/2, bossShip.height/3);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                
+                // Cockpit
+                ctx.fillStyle = '#00ffff';
+                ctx.beginPath();
+                ctx.ellipse(0, -5, 12, 8, 0, 0, Math.PI * 2);
+                ctx.fill();
+                                // Engine glow
+                ctx.shadowColor = '#00ff44';
+                ctx.fillStyle = '#00ff44';
+                ctx.beginPath();
+                ctx.moveTo(-15, bossShip.height/2);
+                ctx.lineTo(-10, bossShip.height/2 + 15 + Math.random() * 5);
+                ctx.lineTo(-5, bossShip.height/2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(15, bossShip.height/2);
+                ctx.lineTo(10, bossShip.height/2 + 15 + Math.random() * 5);
+                ctx.lineTo(5, bossShip.height/2);
+                ctx.fill();
+                
+                // Weapon ports (green glow)
+                ctx.fillStyle = '#00ff44';
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.arc(-25, 5, 5, 0, Math.PI * 2);
+                ctx.arc(25, 5, 5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+                
+                // Health bar
+                const barWidth = 160;
+                const barX = canvas.width/2 - barWidth/2;
+                const barY = 25;
+                const healthPercent = bossShip.health / bossShip.maxHealth;
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#333';
+                ctx.fillRect(barX, barY, barWidth, 14);
+                ctx.fillStyle = '#ff44aa';
+                ctx.fillRect(barX, barY, barWidth * healthPercent, 14);
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(barX, barY, barWidth, 14);
+            }
+
+            // Player projectiles
+            ctx.shadowColor = '#ff44ff';
+            ctx.fillStyle = '#ff44ff';
+            projectiles.forEach(p => {
+                ctx.fillRect(p.x - 2, p.y, 4, 14);
+            });
+
+            // Boss green plasma projectiles
+            ctx.shadowColor = '#00ff44';
+            ctx.fillStyle = '#00ff44';
+            bossProjectiles.forEach(bp => {                ctx.beginPath();
+                ctx.arc(bp.x, bp.y, bp.radius, 0, Math.PI * 2);
+                ctx.fill();
+                // Plasma core
+                ctx.fillStyle = '#88ffaa';
+                ctx.beginPath();
+                ctx.arc(bp.x, bp.y, bp.radius * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Particles
+            ctx.shadowBlur = 8;
+            particles.forEach(p => p.draw());
+            
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+            ctx.globalAlpha = 1;
+            
+            if (!gameActive) {
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // ----- RESTART -----
+        function restartGame() {
+            gameActive = true;
+            score = 0;
+            nextBossThreshold = 100;
+            bossActive = false;
+            projectiles = [];
+            bossProjectiles = [];
+            enemies = [];
+            particles = [];
+            bossShip.active = false;
+            
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 50;
+            
+            scoreSpan.textContent = '0';
+            nextBossSpan.textContent = '100';
+            bossWarningDiv.style.display = 'none';
+            gameOverlayDiv.style.display = 'none';
+            
+            lastSpawnTime = Date.now();
+        }
+
+        // ----- GAME LOOP -----
+        function gameLoop() {
+            update();            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    })();
+</script>
+</body>
+</html>
