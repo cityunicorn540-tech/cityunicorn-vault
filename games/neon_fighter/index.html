@@ -103,8 +103,6 @@
         GAME OVER
         <div class="restart-hint">Tap to restart</div>
     </div>
-    <div class="instruction">👆 Touch / Move — Tap to Shoot</div>
-</div>
 
 <script>
     (function(){
@@ -218,7 +216,7 @@
             canvas.width = Math.min(400, window.innerWidth * 0.95);
             canvas.height = Math.min(700, window.innerHeight * 0.85);
             player.x = Math.min(canvas.width - 20, Math.max(20, canvas.width / 2));
-            player.y = canvas.height - 50;
+            player.y = canvas.height - 40;
         }
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
