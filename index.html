@@ -6,27 +6,27 @@
   <title>The CityUnicorn Vault - Browser Games</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦄</text></svg>">
   <style>
-:root {
-    --primary-color: #7c3aed;
-    --primary-dark: #5b21b6;
-    --primary-light: #a78bfa;
-    --accent-color: #f472b6;
-    --accent-light: #fbcfe8;
-    --bg-dark: #0f0f1a;
-    --bg-card: #1a1a2e;
-    --bg-card-hover: #252542;
-    --text-primary: #ffffff;
-    --text-secondary: #a0a0b8;
-    --text-muted: #6b6b80;
-    --border-color: #2d2d4a;
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 32px rgba(124, 58, 237, 0.2);
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 20px;
-    --transition: all 0.3s ease;
-  }
+    :root {
+      --primary-color: #7c3aed;
+      --primary-dark: #5b21b6;
+      --primary-light: #a78bfa;
+      --accent-color: #f472b6;
+      --accent-light: #fbcfe8;
+      --bg-dark: #0f0f1a;
+      --bg-card: #1a1a2e;
+      --bg-card-hover: #252542;
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0b8;
+      --text-muted: #6b6b80;
+      --border-color: #2d2d4a;
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 8px 32px rgba(124, 58, 237, 0.2);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 20px;
+      --transition: all 0.3s ease;
+    }
 
     * {
       margin: 0;
@@ -183,14 +183,34 @@
       border-color: var(--primary-color);
       box-shadow: var(--shadow-lg);
     }
+
+    /* 🎨 2️⃣ Updated .game-cover CSS Block (exactly as requested) */
     .game-cover {
       height: 200px;
       background: linear-gradient(135deg, #2d1b4e, #7c3aed);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 5rem;
+      overflow: hidden;
+      position: relative;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     }
+    .game-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+    .game-card:hover .game-cover img {
+      transform: scale(1.05);
+    }
+    /* Fallback for emoji/text */
+    .game-cover span {
+      font-size: 5rem;
+      animation: float 3s ease-in-out infinite;
+    }
+
     .game-info {
       padding: 1.5rem;
     }
@@ -322,20 +342,22 @@
   </footer>
 
   <script>
-    const gamesData = [{
-      id: 1,
-      title: "Neon Snake",
-      description: "A neon-infused classic. Eat, grow, and don't hit the walls!",
-      cover: "🐍",
-      gameUrl: "games/neon-snake/index.html",
-      category: "arcade",
-      author: "CityUnicorn"
-    },
+    // 📦 1️⃣ Full Updated gamesData Array (exact replacement)
+    const gamesData = [
+      {
+        id: 1,
+        title: "Neon Snake",
+        description: "A neon-infused classic. Eat, grow, and don't hit the walls!",
+        cover: "https://placehold.co/400x300/00ff00/000000?text=🐍+Neon+Snake&font=roboto",
+        gameUrl: "games/neon-snake/index.html",
+        category: "arcade",
+        author: "CityUnicorn"
+      },
       {
         id: 2,
         title: "Puzzle 2048",
-        description: "The ultimate logic challenge. Can you reach the 2048 tile?",
-        cover: "🧩",
+        description: "Slide, merge, and strategize your way to 2048.",
+        cover: "https://placehold.co/400x300/ff00ff/ffffff?text=🧩+2048&font=roboto",
         gameUrl: "games/puzzle-2048/index.html",
         category: "puzzle",
         author: "CityUnicorn"
@@ -343,75 +365,76 @@
       {
         id: 3,
         title: "Neon Fighter",
-        description: "Take control of a high-speed interceptor and blast your way through a living, breathing starfield.",
-        cover: "",
+        description: "Take control of a high-speed interceptor and blast through a living starfield.",
+        cover: "https://placehold.co/400x300/00ffff/000000?text=✈️+Neon+Fighter&font=roboto",
         gameUrl: "games/neon_fighter/index.html",
         category: "arcade",
-        author: "Gemini AI in collab with Cityunicorn540-tech"
-      },
-            {
-        id: 3,
-        title: "Neon Orbit",
-        description: "collect yellow stars while dodging those pesky pink space debris blocks",
-        cover: "🪐",
-        gameUrl: "games/neon_orbit/index.html",
-        category: "arcade",
-        author: "Gemini AI in collab with Cityunicorn540-tech"
+        author: "Gemini AI x Gwen 2.6 Plus x Cityunicorn540-tech"
       },
       {
         id: 4,
-        title: "Zt 2",
-        description: "A fun collect coins and dodge blocks game",
-        cover: "💰",
-        gameUrl: "games/zt2/index.html",
-        category: "Arcade",
-        author: "cityunicorn540-tech in collab with gemini ai"
-      },
-            {
-        id: 5,
-        title: "Neon Flight",
-        description: "A fun collect the stars game ",
-        cover: "🚀",
-        gameUrl: "games/neon_flight/index.html",
-        category: "Arcade",
-        author: "cityunicorn540-tech in collab with gemini ai"
-      },
-      {
-        id: 5,
-        title: "Zt",
-        description: "A fun collect the coins and dodge the blocks game",
-        cover: "💰",
-        gameUrl: "games/zt/index.html",
+        title: "Neon Orbit",
+        description: "Collect yellow stars while dodging pink space debris.",
+        cover: "https://placehold.co/400x300/7c3aed/ffffff?text=🪐+Neon+Orbit&font=roboto",
+        gameUrl: "games/neon_orbit/index.html",
         category: "arcade",
-        author: "Cityunicorn540-tech"
+        author: "Gemini AI x Cityunicorn540-tech"
       },
       {
-        id: 6,
+        id: 5,
         title: "Squad Ops",
-        description: "A fun battle royale game with 10 levels",
-        cover: "🔫",
+        description: "Fast-paced tactical battle royale with 10 intense levels.",
+        cover: "https://placehold.co/400x300/ff4500/ffffff?text=🔫+Squad+Ops&font=roboto",
         gameUrl: "games/squad_ops/index.html",
         category: "action",
         author: "Cityunicorn540-tech"
       },
-            {
-        id: 7,
-        title: "Neon Glide",
-        description: "A fun game where you dodge falling blocks",
-        cover: "🌌",
-        gameUrl: "games/neon_glide/index.html",
-        category: "arcade",
-        author: "Gemini AI x cityunicorn540-tech"
+      {
+        id: 6,
+        title: "Solitaire Klondike",
+        description: "For the thinking person. Every move counts.",
+        cover: "https://placehold.co/400x300/1e90ff/ffffff?text=⛵+Solitaire+Klondike&font=roboto",
+        gameUrl: "games/solitaire_klondike/index.html",
+        category: "Strategy",
+        author: "Cityunicorn540-tech"
       },
       {
         id: 7,
-        title: "Solitaire Klondike",
-        description: "Solitaire for the thinking person. Every move counts.",
-        cover: "🃏",
-        gameUrl: "games/solitaire_klondike/index.html",
-        category: "strategy",
-        author: "CityUnicorn540-tech"
-      }];
+        title: "Zt2",
+        description: "A fun collect coins and dodge blocks game.",
+        cover: "https://placehold.co/400x300/ffffff/000000?text=🏓+Zt2&font=roboto",
+        gameUrl: "games/Zt2/index.html",
+        category: "arcade",
+        author: "Cityunicorn540-tech"
+      },
+      {
+        id: 8,
+        title: "Neon Flight",
+        description: "A fun collect the stars game.",
+        cover: "https://placehold.co/400x300/ffd700/000000?text=🏹+Neon+Flight&font=roboto",
+        gameUrl: "games/neon_flight/index.html",
+        category: "Arcade",
+        author: "Cityunicorn540-tech"
+      },
+      {
+        id: 9,
+        title: "Neon Glide",
+        description: "Smoothly dodge falling blocks and chase the high score.",
+        cover: "https://placehold.co/400x300/ff1493/ffffff?text=🌌+Neon+Glide&font=roboto",
+        gameUrl: "games/neon_glide/index.html",
+        category: "arcade",
+        author: "Gemini AI x Cityunicorn540-tech"
+      },
+      {
+        id: 10,
+        title: "Zt",
+        description: "Collect coins, dodge blocks, and survive the neon gauntlet.",
+        cover: "https://placehold.co/400x300/adff2f/000000?text=💰+Zt&font=roboto",
+        gameUrl: "games/zt/index.html",
+        category: "arcade",
+        author: "Cityunicorn540-tech"
+      }
+    ];
 
     const gamesGrid = document.getElementById('gamesGrid');
     const gameModal = document.getElementById('gameModal');
@@ -419,23 +442,31 @@
     const closeModal = document.getElementById('closeModal');
     const searchInput = document.getElementById('searchInput');
 
+    // ⚙️ 3️⃣ Updated renderGames function (exact replacement)
     function renderGames(filter = '') {
       const filtered = gamesData.filter(g =>
         g.title.toLowerCase().includes(filter.toLowerCase()) ||
         g.category.toLowerCase().includes(filter.toLowerCase())
       );
 
-      gamesGrid.innerHTML = filtered.map((game, index) => `
-        <div class="game-card" style="animation-delay: ${index * 0.1}s" onclick="openGame(${game.id})">
-        <div class="game-cover">${game.cover}</div>
-        <div class="game-info">
-        <span class="game-category-badge">${game.category}</span>
-        <h3 style="margin-top:10px">${game.title}</h3>
-        <p style="color: #a0a0b8; font-size: 0.9rem; margin: 10px 0;">${game.description}</p>
-        <button class="modal-btn" style="width:100%; background: var(--primary-color);">PLAY NOW</button>
-        </div>
-        </div>
-        `).join('');
+      gamesGrid.innerHTML = filtered.map((game, index) => {
+        const isUrl = game.cover && (game.cover.startsWith('http') || game.cover.startsWith('/'));
+        const coverHtml = isUrl 
+          ? `<img src="${game.cover}" alt="${game.title} cover" loading="lazy" onerror="this.parentElement.innerHTML='<span>🎮</span>'">`
+          : `<span>${game.cover || '🎮'}</span>`;
+
+        return `
+          <div class="game-card" style="animation-delay: ${index * 0.1}s" onclick="openGame(${game.id})">
+            <div class="game-cover">${coverHtml}</div>
+            <div class="game-info">
+              <span class="game-category-badge">${game.category}</span>
+              <h3 style="margin-top:10px">${game.title}</h3>
+              <p style="color: #a0a0b8; font-size: 0.9rem; margin: 10px 0;">${game.description}</p>
+              <button class="modal-btn" style="width:100%; background: var(--primary-color);">PLAY NOW</button>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function openGame(id) {
@@ -467,3 +498,4 @@
   </script>
 </body>
 </html>
+```
