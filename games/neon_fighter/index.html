@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🔥 Neon Ship Fighter — GOO DROP UPDATE 🔥</title>
+    <title>🔥 Neon Ship Fighter — BIRD FLOCK UPDATE 🔥</title>
     <style>
         * {
             margin: 0;
@@ -47,8 +47,7 @@
             font-weight: bold;
             text-shadow: 0 0 10px #00ffff;
         }
-        .boss-warning {
-            position: absolute;
+        .boss-warning {            position: absolute;
             top: 50px;
             left: 0;
             right: 0;
@@ -97,8 +96,7 @@
     </div>
     <div class="boss-warning" id="bossWarning">⚠️ MEGASHIP BOSS ⚠️</div>
     <div class="game-overlay" id="gameOverlay">
-        GAME OVER
-        <div class="restart-hint">Tap to restart</div>
+        GAME OVER        <div class="restart-hint">Tap to restart</div>
     </div>
 </div>
 
@@ -147,7 +145,6 @@
             osc.frequency.setValueAtTime(params.frequency, now);
             const endFreq = Math.max(20, params.frequency + params.freqSlide);
             osc.frequency.exponentialRampToValueAtTime(endFreq, now + params.duration);
-
             filter.type = params.filterType;
             filter.frequency.value = params.filterFreq;
             filter.Q.value = params.filterQ;
@@ -197,8 +194,7 @@
             osc.frequency.value = 220;
             gain.gain.setValueAtTime(0.2, now);
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-            osc.connect(gain).connect(audioCtx.destination);
-            osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+            osc.connect(gain).connect(audioCtx.destination);            osc.onended = () => { osc.disconnect(); gain.disconnect(); };
             osc.start();
             osc.stop(now + 0.15);
         }
@@ -247,8 +243,7 @@
         // ----- CANVAS SIZING -----
         function resizeCanvas() {
             canvas.width = Math.min(600, window.innerWidth * 0.95);
-            canvas.height = Math.min(700, window.innerHeight * 0.85);
-            player.x = Math.min(canvas.width - 20, Math.max(20, canvas.width / 2));
+            canvas.height = Math.min(700, window.innerHeight * 0.85);            player.x = Math.min(canvas.width - 20, Math.max(20, canvas.width / 2));
             player.y = canvas.height - 40;
         }
         window.addEventListener('resize', resizeCanvas);
@@ -274,10 +269,33 @@
             }
         }
 
-        function spawnNormalEnemy() {
-            enemies.push({
-                x: Math.random() * (canvas.width - 30) + 15, y: -25,
-                width: 24, height: 24, speed: 2.8, color: '#00ff88'
+        // 🆕 SPAWN BIRD FLOCK (team of 3)
+        function spawnBirdFlock() {
+            const startX = Math.random() * (canvas.width - 150) + 75;
+            const startY = -40;
+            const formationOffset = 50;
+            
+            // Create 3 birds in formation
+            const positions = [
+                { x: startX, y: startY },                    // Leader (center top)
+                { x: startX - formationOffset, y: startY + 30 }, // Left wing
+                { x: startX + formationOffset, y: startY + 30 }  // Right wing
+            ];
+            
+            positions.forEach((pos, index) => {
+                enemies.push({
+                    x: pos.x,
+                    y: pos.y,
+                    width: 30,
+                    height: 30,
+                    speed: 2.5,
+                    color: '#00ff88',
+                    type: 'bird',
+                    wingPhase: Math.random() * Math.PI * 2,
+                    formationIndex: index,                    baseX: pos.x,
+                    baseY: pos.y,
+                    shootTimer: 0
+                });
             });
         }
 
@@ -324,12 +342,11 @@
         // ----- UPDATE LOGIC -----
         function update() {
             if (!gameActive) return;
-
             const now = Date.now();
 
-            // Normal enemy spawning
-            if (!bossShip.active && now - lastSpawnTime > 1000) {
-                spawnNormalEnemy();
+            // Bird flock spawning
+            if (!bossShip.active && now - lastSpawnTime > 2000) {
+                spawnBirdFlock();
                 lastSpawnTime = now;
             }
 
@@ -340,15 +357,16 @@
                 nextBossSpan.textContent = nextBossThreshold;
             }
 
-            // ===== 🆕 GOO DROP SPAWNER (every 2 sec from random enemy) =====
-            if (!bossShip.active && now - lastGooSpawn > 2000 && enemies.length > 0) {
+            // ===== 🆕 GOO DROP SPAWNER (birds shoot goo!) =====
+            if (!bossShip.active && now - lastGooSpawn > 1500 && enemies.length > 0) {
                 const randomEnemy = enemies[Math.floor(Math.random() * enemies.length)];
                 enemyProjectiles.push({
-                    x: randomEnemy.x + randomEnemy.width / 2,
-                    y: randomEnemy.y + randomEnemy.height / 2,
-                    radius: 6,
-                    speed: 4,
-                    color: '#00ff44'
+                    x: randomEnemy.x,
+                    y: randomEnemy.y + 15,
+                    radius: 7,
+                    speed: 3.5,
+                    color: '#00ff44',
+                    wobble: Math.random() * Math.PI * 2
                 });
                 lastGooSpawn = now;
             }
@@ -372,16 +390,18 @@
                         playBossExplosion();
                         for (let j=0;j<60;j++) particles.push(new Particle(bossShip.x,bossShip.y,'#ffaa00'));
                     }
-                }
-                // Normal enemy collision
+                }                // Bird enemy collision
                 if (!used) {
                     for (let eIdx = enemies.length - 1; eIdx >= 0; eIdx--) {
                         const e = enemies[eIdx];
-                        if (p.x > e.x && p.x < e.x + e.width && p.y > e.y && p.y < e.y + e.height) {
+                        const dx = p.x - e.x;
+                        const dy = p.y - e.y;
+                        const dist = Math.hypot(dx, dy);
+                        if (dist < e.width/2 + 5) {
                             used = true;
                             enemies.splice(eIdx, 1);
                             score += 10; scoreSpan.textContent = score;
-                            for (let k=0;k<8;k++) particles.push(new Particle(e.x+12, e.y+12, e.color));
+                            for (let k=0;k<10;k++) particles.push(new Particle(e.x, e.y, '#00ff88'));
                             break;
                         }
                     }
@@ -408,6 +428,8 @@
             for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
                 const goo = enemyProjectiles[i];
                 goo.y += goo.speed;
+                goo.wobble += 0.1;
+                goo.x += Math.sin(goo.wobble) * 0.5; // Slight wobble
 
                 // Remove if off bottom
                 if (goo.y - goo.radius > canvas.height) {
@@ -417,8 +439,7 @@
 
                 // Player collision (circle to circle)
                 const dx = player.x - goo.x;
-                const dy = player.y - goo.y;
-                const dist = Math.hypot(dx, dy);
+                const dy = player.y - goo.y;                const dist = Math.hypot(dx, dy);
                 if (dist < player.size + goo.radius) {
                     gameActive = false;
                     gameOverlayDiv.style.display = 'block';
@@ -426,11 +447,26 @@
                 }
             }
 
-            // ----- Normal enemies update & player collision -----
+            // ----- Bird enemies update & player collision -----
+            const time = now * 0.001;
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const e = enemies[i];
+                
+                // Swooping motion for birds
                 e.y += e.speed;
-                if (Math.hypot(player.x - (e.x + e.width/2), (player.y - player.size/2) - (e.y + e.height/2)) < player.size + e.width/2) {
+                e.x = e.baseX + Math.sin(time * 2 + e.formationIndex) * 20;
+                e.baseX += 0.3; // Slow drift right
+                e.wingPhase += 0.3;
+                
+                // Keep in bounds
+                if (e.baseX > canvas.width - 40) e.baseX = canvas.width - 40;
+                if (e.baseX < 40) e.baseX = 40;
+                
+                // Player collision
+                const dx = player.x - e.x;
+                const dy = (player.y - player.size/2) - e.y;
+                const dist = Math.hypot(dx, dy);
+                if (dist < player.size + e.width/2) {
                     gameActive = false; gameOverlayDiv.style.display = 'block'; return;
                 }
                 if (e.y > canvas.height + 50) enemies.splice(i, 1);
@@ -452,8 +488,7 @@
                         const spread = (s - Math.floor(shotCount/2)) * 15;
                         const dx = player.x + spread - bossShip.x;
                         const dy = player.y - bossShip.y;
-                        const dist = Math.hypot(dx, dy);
-                        const speed = 4.5;
+                        const dist = Math.hypot(dx, dy);                        const speed = 4.5;
                         bossProjectiles.push({
                             x: bossShip.x + (s===1 ? 0 : s===0 ? -20 : 20),
                             y: bossShip.y + 15,
@@ -478,10 +513,80 @@
             nextBossSpan.textContent = nextBossThreshold;
         }
 
+        // 🆕 DRAW BIRD ENEMY
+        function drawBirdEnemy(e) {
+            ctx.save();
+            ctx.translate(e.x, e.y);
+            
+            // Glow effect
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00ff88';
+            ctx.strokeStyle = '#00ff88';
+            ctx.lineWidth = 2.5;
+            ctx.fillStyle = '#003311';
+            
+            // Wing flap animation
+            const wingFlap = Math.sin(e.wingPhase) * 10;
+            
+            // Body (diamond shape)
+            ctx.beginPath();
+            ctx.moveTo(0, -12);
+            ctx.lineTo(-10, 0);
+            ctx.lineTo(0, 15);
+            ctx.lineTo(10, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+                        // Left wing
+            ctx.beginPath();
+            ctx.moveTo(-8, -5);
+            ctx.lineTo(-20 - wingFlap/2, -10 + wingFlap);
+            ctx.lineTo(-12, 5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            // Right wing
+            ctx.beginPath();
+            ctx.moveTo(8, -5);
+            ctx.lineTo(20 + wingFlap/2, -10 + wingFlap);
+            ctx.lineTo(12, 5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            // Eyes (angry!)
+            ctx.fillStyle = '#00ff88';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.moveTo(-5, -3);
+            ctx.lineTo(-2, -5);
+            ctx.lineTo(-1, -3);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(5, -3);
+            ctx.lineTo(2, -5);
+            ctx.lineTo(1, -3);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Beak
+            ctx.fillStyle = '#00ff44';
+            ctx.beginPath();
+            ctx.moveTo(-3, 2);
+            ctx.lineTo(0, 8);
+            ctx.lineTo(3, 2);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
         // ----- DRAW -----
         function draw() {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#000';            ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             // Stars
             ctx.fillStyle = '#fff';
@@ -512,9 +617,8 @@
             ctx.lineTo(player.x + 4, player.y + player.size);
             ctx.fill();
 
-            // Normal enemies
-            ctx.shadowColor = '#00ff88'; ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 2.5;
-            enemies.forEach(e => ctx.strokeRect(e.x, e.y, e.width, e.height));
+            // 🆕 Draw bird enemies
+            enemies.forEach(e => drawBirdEnemy(e));
 
             // Boss ship
             if (bossShip.active) {
@@ -531,8 +635,7 @@
                 
                 ctx.fillStyle = '#00ffff';
                 ctx.beginPath();
-                ctx.ellipse(0, -5, 12, 8, 0, 0, Math.PI*2); ctx.fill();
-                
+                ctx.ellipse(0, -5, 12, 8, 0, 0, Math.PI*2); ctx.fill();                
                 ctx.shadowColor = '#00ff44'; ctx.fillStyle = '#00ff44';
                 ctx.beginPath();
                 ctx.moveTo(-15, bossShip.height/2); ctx.lineTo(-10, bossShip.height/2+15); ctx.lineTo(-5, bossShip.height/2); ctx.fill();
@@ -581,8 +684,7 @@
             });
             ctx.shadowBlur = 0;
 
-            // Particles
-            ctx.shadowBlur = 8;
+            // Particles            ctx.shadowBlur = 8;
             particles.forEach(p => p.draw());
             
             ctx.shadowBlur = 0; ctx.shadowColor = 'transparent'; ctx.globalAlpha = 1;
