@@ -92,6 +92,36 @@
         const gameOverlayDiv = document.getElementById('gameOverlay');
         const comboDisplay = document.getElementById('comboDisplay');
 
+        // ----- STARFIELD BACKGROUND -----
+        let stars = [];
+        function generateStars() {
+            stars = [];
+            const count = 200;
+            for (let i = 0; i < count; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    radius: Math.random() * 2.2 + 0.8,
+                    baseAlpha: Math.random() * 0.5 + 0.3,
+                    twinkleSpeed: Math.random() * 0.015 + 0.005,
+                    phase: Math.random() * Math.PI * 2
+                });
+            }
+        }
+        function drawStars() {
+            const now = Date.now();
+            for (const star of stars) {
+                const twinkle = Math.sin(now * star.twinkleSpeed + star.phase);
+                const alpha = star.baseAlpha + (0.4 + 0.3 * twinkle);
+                ctx.globalAlpha = Math.min(1, Math.max(0.2, alpha));
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+
         // ----- AUDIO SYSTEM -----
         let audioCtx = null;
         function initAudio() { if (audioCtx) return; try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} }
@@ -209,6 +239,7 @@
             canvas.height = Math.min(700, window.innerHeight * 0.85);
             player.x = canvas.width / 2;
             player.y = canvas.height - 40;
+            generateStars();
         }
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
@@ -598,13 +629,9 @@
         }
 
         function draw() {
-            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#fff';
-            for (let i=0;i<60;i++) {
-                ctx.globalAlpha = 0.5;
-                ctx.fillRect((i*23)%canvas.width, (i*13 + Date.now()*0.3)%canvas.height, 2, 2);
-            }
-            ctx.globalAlpha = 1;
+            // Clear and draw starfield
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawStars();
 
             // Player
             ctx.shadowBlur = 20; ctx.shadowColor = player.shielded ? '#00ffff' : player.color;
